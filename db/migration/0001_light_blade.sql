@@ -1,0 +1,62 @@
+CREATE TABLE `dental_records` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`patient_id` int NOT NULL,
+	`doctor_id` int,
+	`complaint` text,
+	`history_of_present_complaint` text,
+	`past_dental_history` text,
+	`medication_s` boolean DEFAULT false,
+	`medication_h` boolean DEFAULT false,
+	`medication_a` boolean DEFAULT false,
+	`medication_d` boolean DEFAULT false,
+	`medication_e` boolean DEFAULT false,
+	`medication_pud` boolean DEFAULT false,
+	`medication_blood_disorder` boolean DEFAULT false,
+	`medication_allergy` boolean DEFAULT false,
+	`family_social_history` text,
+	`extra_oral_examination` text,
+	`intra_oral_examination` text,
+	`teeth_present` json,
+	`carious_cavity` json,
+	`filled_teeth` json,
+	`missing_teeth` json,
+	`fractured_teeth` json,
+	`periodontal_condition` varchar(100),
+	`oral_hygiene` varchar(50),
+	`investigations` text,
+	`x_ray_findings` text,
+	`provisional_diagnosis` json,
+	`treatment_plan` json,
+	`calculus` text,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `dental_records_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `patients` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`sex` varchar(50) NOT NULL,
+	`date_of_birth` timestamp,
+	`phone_number` varchar(20) NOT NULL,
+	`email` varchar(255),
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `patients_id` PRIMARY KEY(`id`),
+	CONSTRAINT `patients_phone_number_unique` UNIQUE(`phone_number`),
+	CONSTRAINT `patients_email_unique` UNIQUE(`email`)
+);
+--> statement-breakpoint
+CREATE TABLE `users` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`username` varchar(255) NOT NULL,
+	`password_hash` varchar(255) NOT NULL,
+	`email` varchar(255),
+	`role` varchar(50) NOT NULL,
+	`is_active` boolean NOT NULL DEFAULT true,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `users_id` PRIMARY KEY(`id`),
+	CONSTRAINT `users_username_unique` UNIQUE(`username`),
+	CONSTRAINT `users_email_unique` UNIQUE(`email`)
+);
