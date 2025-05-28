@@ -1,4 +1,4 @@
-import { serial, int, varchar, text, boolean, timestamp, json, mysqlTable } from 'drizzle-orm/mysql-core';
+import { serial, int, varchar, text, boolean, timestamp, json, mysqlTable, decimal } from 'drizzle-orm/mysql-core';
 import { relations } from 'drizzle-orm';
 
 // Existing Patients Schema
@@ -34,18 +34,18 @@ export const users = mysqlTable("users", {
 // Relations for Users
 export const userRelations = relations(users, ({ many }) => ({
   dentalRecords: many(dentalRecords),
+  inventoryTransactions: many(inventoryTransactions), // Added for inventory
 }));
 
 
 // Updated Dental Records Schema (doctorId is now nullable)
 export const dentalRecords = mysqlTable("dental_records", {
   id: serial("id").primaryKey(),
-  
+
   patientId: int("patient_id")
     .notNull()
     .references(() => patients.id, { onDelete: 'cascade' }),
-  
-  // *** CHANGE HERE: Removed .notNull() to allow SET NULL on doctor deletion ***
+
   doctorId: int("doctor_id")
     .references(() => users.id, { onDelete: 'set null' }),
 
@@ -95,6 +95,63 @@ export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
   }),
   doctor: one(users, {
     fields: [dentalRecords.doctorId],
+    references: [users.id],
+  }),
+}));
+
+
+// --- NEW INVENTORY SCHEMAS ---
+
+// Inventory Items Schema - UPDATED
+export const inventoryItems = mysqlTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), // e.g., "Gloves", "Syringes", "Composite Resin"
+  
+  // *** ADDED THESE TWO COLUMNS ***
+  category: varchar("category", { length: 100 }).notNull(), // New: Item category (required)
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(), // New: Price per unit (required)
+  // ******************************
+
+  description: text("description"),
+  unitOfMeasure: varchar("unit_of_measure", { length: 50 }).notNull(), // e.g., "box", "piece", "ml", "pack"
+  reorderLevel: int("reorder_level").default(0).notNull(), // When to reorder
+  currentStock: int("current_stock").default(0).notNull(), // To be managed by transactions
+  costPerUnit: decimal("cost_per_unit", { precision: 10, scale: 2 }).default('0.00'), // Optional: for costing
+  supplier: varchar("supplier", { length: 255 }), // Optional
+  lastRestockedAt: timestamp("last_restocked_at", { mode: 'date' }), // Date of last stock-in
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Inventory Item Relations
+export const inventoryItemRelations = relations(inventoryItems, ({ many }) => ({
+  transactions: many(inventoryTransactions),
+}));
+
+
+// Inventory Transactions Schema
+export const inventoryTransactions = mysqlTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  itemId: int("item_id")
+    .notNull()
+    .references(() => inventoryItems.id, { onDelete: 'cascade' }),
+  userId: int("user_id") // The staff/owner who recorded the transaction
+    .references(() => users.id, { onDelete: 'set null' }), // Set null if user is deleted
+  transactionType: varchar("transaction_type", { length: 50, enum: ['stock_in', 'stock_out', 'adjustment'] }).notNull(), // 'stock_in', 'stock_out', 'adjustment'
+  quantity: int("quantity").notNull(), // Positive for stock_in/adjustment+, negative for stock_out/adjustment-
+  notes: text("notes"), // e.g., "Restocked from Supplier X", "Used for patient Y", "Count discrepancy"
+  transactionDate: timestamp("transaction_date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(), // This is effectively the transactionDate, kept for consistency
+});
+
+// Inventory Transaction Relations
+export const inventoryTransactionRelations = relations(inventoryTransactions, ({ one }) => ({
+  item: one(inventoryItems, {
+    fields: [inventoryTransactions.itemId],
+    references: [inventoryItems.id],
+  }),
+  user: one(users, {
+    fields: [inventoryTransactions.userId],
     references: [users.id],
   }),
 }));

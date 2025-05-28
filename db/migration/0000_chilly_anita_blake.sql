@@ -33,6 +33,36 @@ CREATE TABLE `dental_records` (
 	CONSTRAINT `dental_records_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
+CREATE TABLE `inventory_items` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`category` varchar(100) NOT NULL,
+	`unit_price` decimal(10,2) NOT NULL,
+	`description` text,
+	`unit_of_measure` varchar(50) NOT NULL,
+	`reorder_level` int NOT NULL DEFAULT 0,
+	`current_stock` int NOT NULL DEFAULT 0,
+	`cost_per_unit` decimal(10,2) DEFAULT '0.00',
+	`supplier` varchar(255),
+	`last_restocked_at` timestamp,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `inventory_items_id` PRIMARY KEY(`id`),
+	CONSTRAINT `inventory_items_name_unique` UNIQUE(`name`)
+);
+--> statement-breakpoint
+CREATE TABLE `inventory_transactions` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`item_id` int NOT NULL,
+	`user_id` int,
+	`transaction_type` varchar(50) NOT NULL,
+	`quantity` int NOT NULL,
+	`notes` text,
+	`transaction_date` timestamp NOT NULL DEFAULT (now()),
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `inventory_transactions_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
 CREATE TABLE `patients` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,
@@ -60,3 +90,4 @@ CREATE TABLE `users` (
 	CONSTRAINT `users_username_unique` UNIQUE(`username`),
 	CONSTRAINT `users_email_unique` UNIQUE(`email`)
 );
+--> statement-breakpoint
