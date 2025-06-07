@@ -25,7 +25,7 @@ export const users = mysqlTable("users", {
   username: varchar("username", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).unique(),
-  role: varchar("role", { length: 50, enum: ['owner', 'staff'] }).notNull(),
+  role: varchar("role", { length: 50, enum: ['owner', 'staff', 'nurse'] }).notNull(), // 'nurse' role added here
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

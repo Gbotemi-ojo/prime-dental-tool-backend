@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt - Prime Dental Clinic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-top: 5px solid #007bff; /* A nice clinic-like blue */
+        }
+        h1, h2, h3 {
+            color: #0056b3;
+            text-align: center;
+        }
+        .header, .footer {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .details-section {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .details-section p {
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+        }
+        .total-row td {
+            font-weight: bold;
+            background-color: #e6f7ff;
+        }
+        .clinic-info {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Official Payment Receipt</h1>
+            <p><strong>Prime Dental Clinic</strong></p>
+            <p>Local government, 104, New Ipaja/Egbeda Road, opposite prestige super-market,</p>
+            <p>Alimosho, Ipaja Rd, Ipaja, Lagos 100006, Lagos</p>
+            <p>Phone: 0703 070 8877 | Email: {{clinicEmail}}</p>
+            <hr>
+        </div>
+
+        <div class="details-section">
+            <h2>Receipt Details</h2>
+            <p><strong>Receipt Number:</strong> {{receiptNumber}}</p>
+            <p><strong>Date:</strong> {{receiptDate}}</p>
+            <p><strong>Patient Name:</strong> {{patientName}}</p>
+        </div>
+
+        <div class="details-section">
+            <h2>Services Provided</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Amount (₦)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{receiptItems}}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="details-section">
+            <h2>Payment Summary</h2>
+            <p><strong>Subtotal:</strong> ₦{{subtotal}}</p>
+
+            <p><strong>HMO Provider:</strong> {{hmoProvider}}</p>
+            <p><strong>HMO Covered Amount:</strong> ₦{{hmoCoveredAmount}}</p>
+
+            <p><strong>Payment Method:</strong> {{paymentMethod}}</p>
+            <p style="font-size: 1.2em; font-weight: bold; color: #007bff;">
+                <strong>Total Amount Due from Patient:</strong> ₦{{amountPaid}}
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>Thank you for choosing Prime Dental Clinic!</p>
+            <p>We appreciate your business.</p>
+            <p class="clinic-info">
+                This is an automated email, please do not reply.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

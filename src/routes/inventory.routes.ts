@@ -1,0 +1,39 @@
+// src/routes/inventory.routes.ts
+import { Router } from 'express';
+import { inventoryController } from '../controllers/inventory.controller'; // Import the controller
+import { authenticateToken, authorizeRoles } from '../middleware/auth'; // Your authentication/authorization middleware
+
+const router = Router();
+
+// --- Inventory Items ---
+
+// GET /api/inventory/items - Get all inventory items
+router.get('/items', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getAllItems);
+
+// GET /api/inventory/items/:id - Get a single inventory item by ID
+router.get('/items/:id', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getItemById);
+
+// POST /api/inventory/items - Add a new inventory item
+router.post('/items', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.addItem);
+
+// PUT /api/inventory/items/:id - Update an inventory item by ID
+router.put('/items/:id', authenticateToken, authorizeRoles(['owner']), inventoryController.updateItem);
+
+// DELETE /api/inventory/items/:id - Delete an inventory item by ID
+router.delete('/items/:id', authenticateToken, authorizeRoles(['owner']), inventoryController.deleteItem);
+
+// GET /api/inventory/items/:id/current-stock - Get current stock level and status for an item
+router.get('/items/:id/current-stock', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getItemStockStatus);
+
+// --- Inventory Transactions ---
+
+// POST /api/inventory/transactions - Record an inventory transaction (stock_in, stock_out, adjustment)
+router.post('/transactions', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.recordTransaction);
+
+// GET /api/inventory/transactions - Get all inventory transactions
+router.get('/transactions', authenticateToken, authorizeRoles(['owner']), inventoryController.getAllTransactions);
+
+// GET /api/inventory/items/:itemId/transactions - Get transactions for a specific inventory item
+router.get('/items/:itemId/transactions', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getTransactionsByItemId);
+
+export default router;
