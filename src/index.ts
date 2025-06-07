@@ -5,13 +5,12 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 
-import { testDatabaseConnection } from './config/database'; // Import test function
+import { testDatabaseConnection } from './config/database';
 import apiRoutes from './routes';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 const API_PREFIX = process.env.API_PREFIX || '/api';
 
 app.use(helmet());
@@ -43,12 +42,10 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).send('Something broke!');
 });
 
-async function startServer() {
-  await testDatabaseConnection(); // Ensure DB connection is tested before starting server
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`API available at ${API_PREFIX}`);
-  });
-}
+export default app;
 
-startServer();
+testDatabaseConnection().then(() => {
+    console.log("Database connection test completed successfully on Vercel startup.");
+}).catch(error => {
+    console.error("Database connection test FAILED on Vercel startup:", error);
+});
