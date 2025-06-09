@@ -1,10 +1,8 @@
 // src/services/googleSheets.service.ts
-import { google, sheets_v4 } from 'googleapis'; // Import sheets_v4 for types
-import * as dotenv from 'dotenv'; // Import dotenv
+import { google, sheets_v4 } from 'googleapis';
+import * as dotenv from 'dotenv';
+import * as path from 'path'; // Import the 'path' module to handle file paths
 
-// Load environment variables from .env file in development
-// This line should ideally be at the very top of your application's entry file (e.g., app.ts or server.ts)
-// but placing it here ensures they are loaded when this service is initialized.
 dotenv.config();
 
 export class GoogleSheetsService {
@@ -12,36 +10,22 @@ export class GoogleSheetsService {
   private spreadsheetId: string;
 
   constructor() {
-    // Construct the credentials object from environment variables
-    const credentials = {
-      type: process.env.GOOGLE_TYPE,
-      project_id: process.env.GOOGLE_PROJECT_ID,
-      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      // Ensure newlines are correctly parsed for the private_key
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_AUTH_URI,
-      token_uri: process.env.GOOGLE_TOKEN_URI,
-      auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
-      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
-      universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN,
-    };
+    // Define the path to your JSON key file in the root directory
+    // process.cwd() gets the current working directory (usually the project root)
+    const keyFilePath = path.join(process.cwd(), 'credentials.json');
 
-    // Validate that required credentials are present
-    if (!credentials.private_key || !credentials.client_email) {
-      console.error('Missing Google service account credentials in environment variables.');
-      throw new Error('Google service account credentials not configured.');
-    }
+    // --- Added console.log for debugging ---
+    console.log('--- Google Sheets Service Init ---');
+    console.log('Attempting to load Google credentials from keyFile:', keyFilePath);
+    // --- End of added console.log ---
 
     const auth = new google.auth.GoogleAuth({
-      credentials, // Pass the constructed credentials object
+      keyFile: keyFilePath, // Point directly to the JSON key file
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
-    this.spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID || 'YOUR_DEFAULT_SPREADSHEET_ID_HERE'; 
-    // It's a good practice to also store the spreadsheet ID in an environment variable.
-    // If not set, it will fallback to the hardcoded ID for now.
+    // It's still good practice to keep the spreadsheet ID in an environment variable.
+    this.spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID || '1fu1uSvngE9QCzW7_eSDNxh3U3fuHDvekG7j46nmkw54';
 
     // Authenticate and create a Google Sheets client
     this.sheets = google.sheets({ version: 'v4', auth });
