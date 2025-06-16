@@ -4,6 +4,7 @@ import path from 'path';
 import { db } from '../config/database'; // Assuming this import is still needed for other parts of the service
 import { users } from '../../db/schema'; // Assuming this import is still needed for other parts of the service
 import { eq, ne } from 'drizzle-orm'; // 'ne' (not equal) is needed for filtering roles
+import { googleSheetsService } from './googleSheets.service'; // Import the Google Sheets Service
 
 export class EmailService {
     private transporter: nodemailer.Transporter;
@@ -210,7 +211,22 @@ export class EmailService {
         }
         const validBccRecipients = bccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 
-        return await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
+        // Send the email
+        const emailResult = await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
+
+        // If the email was sent successfully, append the receipt data to Google Sheets
+        if (emailResult.success) {
+            try {
+                await googleSheetsService.appendReceipts(receiptData);
+                console.log('Receipt data successfully logged to Google Sheet.');
+            } catch (sheetError) {
+                console.error('Failed to log receipt data to Google Sheet:', sheetError);
+                // You might want to handle this error more robustly, e.g.,
+                // by sending an internal notification or retrying.
+            }
+        }
+
+        return emailResult;
     }
 }
 

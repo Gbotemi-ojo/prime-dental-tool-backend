@@ -9,4 +9,8 @@ const router = Router();
 // Accessible by 'owner', 'staff', and 'nurse' roles (as per requirement, nurse can send)
 router.post('/send', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse']), receiptController.sendReceipt);
 
+// GET /api/receipts/revenue-report - Fetch all receipt data for revenue calculation
+// Accessible by 'owner' and 'staff' roles
+router.get('/revenue-report', authenticateToken, authorizeRoles(['owner', 'staff']), receiptController.getRevenueReport);
+
 export default router;

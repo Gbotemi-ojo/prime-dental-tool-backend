@@ -1,8 +1,8 @@
 // src/controllers/receipt.controller.ts
 import { Request, Response } from 'express';
 import { emailService } from '../services/email.service';
-import { patientService } from '../services/patient.service'; // To fetch patient email
-// import { users } from '../../db/schema'; // Not used in this controller snippet, can be removed if truly unused
+import { patientService } from '../services/patient.service';
+import { googleSheetsService } from '../services/googleSheets.service'; // Import GoogleSheetsService
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -31,16 +31,11 @@ export class ReceiptController {
     }
 
     try {
-      // It's still good practice to verify patient email via DB,
-      // but for generating receipt, we can primarily rely on the email passed from frontend
-      // if it's reliable. If not, fetch patient.email and overwrite patientEmail from frontend.
       const patient = await patientService.getPatientById(receiptData.patientId);
       if (!patient) {
         res.status(404).json({ error: 'Patient not found.' });
         return;
       }
-      // Use the patient's actual email from DB for sending the email,
-      // in case the frontend's patientEmail was somehow incorrect or missing.
       const targetEmail = patient.email;
 
       if (!targetEmail) {
@@ -61,6 +56,23 @@ export class ReceiptController {
     } catch (error) {
       console.error('Error in sendReceipt controller:', error);
       res.status(500).json({ error: 'Server error sending receipt.' });
+    }
+  };
+
+  /**
+   * Fetches all receipt data from Google Sheets (Sheet2) for revenue reporting.
+   * Accessible by 'owner' and 'staff' roles.
+   */
+  getRevenueReport = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const allReceiptsData = await googleSheetsService.getReceiptsData();
+
+      // The first row of allReceiptsData will be your headers.
+      // You can send them as is, or process them here if needed.
+      res.status(200).json(allReceiptsData);
+    } catch (error) {
+      console.error('Error fetching revenue report from Google Sheets:', error);
+      res.status(500).json({ error: 'Failed to retrieve revenue data for report.' });
     }
   };
 }

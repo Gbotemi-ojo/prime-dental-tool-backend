@@ -4,6 +4,7 @@ import { db } from '../config/database';
 import { patients, dentalRecords, users } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { googleSheetsService } from './googleSheets.service';
+import { emailService } from './email.service'; // Import the email service
 
 // Define types for better type safety in service layer
 type PatientInsert = InferInsertModel<typeof patients>;
@@ -51,7 +52,7 @@ export class PatientService {
       throw new Error('Failed to retrieve newly created patient.');
     }
 
-    // NEW: Attempt to save to Google Sheets after successful DB insertion
+    // Attempt to save to Google Sheets after successful DB insertion
     try {
       // UPDATED: Format current date to YYYY-MM-DD for Google Sheets
       const currentFormattedDate = new Date().toISOString().split('T')[0];
@@ -63,10 +64,51 @@ export class PatientService {
         newPatient.email || '', // Ensure email is an empty string if null
         currentFormattedDate // Use the formatted submission date for 'firstAppointment'
       ]);
+      console.log('Patient data successfully appended to Google Sheet (Patient Registration Sheet).');
     } catch (sheetError: any) {
-      console.warn(`Warning: Could not save patient to Google Sheet: ${sheetError.message}`);
+      console.warn(`Warning: Could not save patient to Google Sheet during registration: ${sheetError.message}`);
       // Log a warning if saving to Google Sheets fails, but do not block the patient creation
       // if database insertion was successful.
+    }
+
+    // NEW: Send email notification to owner and staff about new patient registration
+    try {
+      const ownerEmail = process.env.OWNER_EMAIL || '';
+      // Dynamically get staff emails (excluding nurses) using the email service's private method
+      const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses(); 
+
+      const allRecipients = [...staffEmails];
+      if (ownerEmail && !allRecipients.includes(ownerEmail)) {
+          allRecipients.push(ownerEmail);
+      }
+
+      if (allRecipients.length > 0) {
+          const subject = 'New Guest Patient Registration';
+          const htmlContent = `
+              <h2>New Guest Patient Registered!</h2>
+              <p>A new guest patient has been registered in the system:</p>
+              <ul>
+                  <li><strong>Name:</strong> ${newPatient.name}</li>
+                  <li><strong>Sex:</strong> ${newPatient.sex}</li>
+                  <li><strong>Date of Birth:</strong> ${newPatient.dateOfBirth ? newPatient.dateOfBirth.toLocaleDateString() : 'N/A'}</li>
+                  <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
+                  <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
+                  <li><strong>Registration Date:</strong> ${new Date(newPatient.createdAt!).toLocaleDateString()}</li>
+              </ul>
+              <p>Please log in to the EMR system for more details.</p>
+              <p>Thank you,</p>
+              <p>Prime Dental Clinic EMR System</p>
+          `;
+
+          // Send to all recipients (can be optimized to a single BCC call if many recipients)
+          // For simplicity and directness, sending as 'to' for now as requested for notification
+          await emailService.sendEmail(allRecipients.join(','), subject, htmlContent); 
+          console.log('New guest patient registration email sent to owner and staff.');
+      } else {
+          console.warn('No owner or staff emails configured to send new guest patient notification.');
+      }
+    } catch (emailError: any) {
+      console.error(`Error sending new patient registration email: ${emailError.message}`);
     }
 
     return newPatient;
@@ -276,7 +318,7 @@ export class PatientService {
 
     const cleanedUpdateData: Partial<DentalRecordInsert> = { ...updateData };
     delete cleanedUpdateData.patientId; // Prevent changing patientId
-    delete cleanedUpdateData.doctorId;   // Prevent changing doctorId
+    delete cleanedUpdateData.doctorId;   // Prevent changing doctorId
 
     await db.update(dentalRecords).set({
       ...cleanedUpdateData,
