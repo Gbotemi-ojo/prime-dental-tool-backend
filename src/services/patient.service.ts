@@ -54,12 +54,12 @@ export class PatientService {
 
     // Attempt to save to Google Sheets after successful DB insertion
     try {
-      // UPDATED: Format current date to YYYY-MM-DD for Google Sheets
+      // UPDATED: Format current date to ISO-MM-DD for Google Sheets
       const currentFormattedDate = new Date().toISOString().split('T')[0];
       await googleSheetsService.appendRow([
         newPatient.name,
         newPatient.sex,
-        newPatient.dateOfBirth ? newPatient.dateOfBirth.toISOString().split('T')[0] : '', // Format date to YYYY-MM-DD
+        newPatient.dateOfBirth ? newPatient.dateOfBirth.toISOString().split('T')[0] : '', // Format date to ISO-MM-DD
         newPatient.phoneNumber,
         newPatient.email || '', // Ensure email is an empty string if null
         currentFormattedDate // Use the formatted submission date for 'firstAppointment'
@@ -75,43 +75,85 @@ export class PatientService {
     try {
       const ownerEmail = process.env.OWNER_EMAIL || '';
       // Dynamically get staff emails (excluding nurses) using the email service's private method
-      const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses(); 
+      const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses();
 
       const allRecipients = [...staffEmails];
       if (ownerEmail && !allRecipients.includes(ownerEmail)) {
-          allRecipients.push(ownerEmail);
+        allRecipients.push(ownerEmail);
       }
 
       if (allRecipients.length > 0) {
-          const subject = 'New Guest Patient Registration';
-          const htmlContent = `
-              <h2>New Guest Patient Registered!</h2>
-              <p>A new guest patient has been registered in the system:</p>
-              <ul>
-                  <li><strong>Name:</strong> ${newPatient.name}</li>
-                  <li><strong>Sex:</strong> ${newPatient.sex}</li>
-                  <li><strong>Date of Birth:</strong> ${newPatient.dateOfBirth ? newPatient.dateOfBirth.toLocaleDateString() : 'N/A'}</li>
-                  <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
-                  <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
-                  <li><strong>Registration Date:</strong> ${new Date(newPatient.createdAt!).toLocaleDateString()}</li>
-              </ul>
-              <p>Please log in to the EMR system for more details.</p>
-              <p>Thank you,</p>
-              <p>Prime Dental Clinic EMR System</p>
+        const subject = 'New Guest Patient Registration';
+        const htmlContent = `
+            <h2>New Guest Patient Registered!</h2>
+            <p>A new guest patient has been registered in the system:</p>
+            <ul>
+                <li><strong>Name:</strong> ${newPatient.name}</li>
+                <li><strong>Sex:</strong> ${newPatient.sex}</li>
+                <li><strong>Date of Birth:</strong> ${newPatient.dateOfBirth ? newPatient.dateOfBirth.toLocaleDateString() : 'N/A'}</li>
+                <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
+                <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
+                <li><strong>Registration Date:</strong> ${new Date(newPatient.createdAt!).toLocaleDateString()}</li>
+            </ul>
+            <p>Please log in to the EMR system for more details.</p>
+            <p>Thank you,</p>
+            <p>Prime Dental Clinic EMR System</p>
           `;
 
-          // Send to all recipients (can be optimized to a single BCC call if many recipients)
-          // For simplicity and directness, sending as 'to' for now as requested for notification
-          await emailService.sendEmail(allRecipients.join(','), subject, htmlContent); 
-          console.log('New guest patient registration email sent to owner and staff.');
+        // Send to all recipients (can be optimized to a single BCC call if many recipients)
+        // For simplicity and directness, sending as 'to' for now as requested for notification
+        await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
+        console.log('New guest patient registration email sent to owner and staff.');
       } else {
-          console.warn('No owner or staff emails configured to send new guest patient notification.');
+        console.warn('No owner or staff emails configured to send new guest patient notification.');
       }
     } catch (emailError: any) {
       console.error(`Error sending new patient registration email: ${emailError.message}`);
     }
 
     return newPatient;
+  }
+
+  /**
+   * Records a visit for an existing patient by their phone number in Google Sheets.
+   * This function does NOT save to the database; it only logs the visit in Google Sheets.
+   * @param phoneNumber The phone number of the returning patient.
+   * @returns An object confirming the visit recording and patient name.
+   */
+  async addReturningGuest(phoneNumber: string) {
+    // Find the patient by phone number
+    const [patient] = await db.select()
+      .from(patients)
+      .where(eq(patients.phoneNumber, phoneNumber))
+      .limit(1);
+
+    if (!patient) {
+      throw new Error('Patient with this phone number not found.');
+    }
+
+    const visitDate = new Date().toISOString().split('T')[0]; // Current date for the visit
+
+    // Record the visit in Google Sheets
+    try {
+      // Ensure your Google Sheet is set up to receive these columns:
+      // Name, Gender, Date of Birth, Phone Number, Email, First Appointment, Next Appointment (Current Date)
+      await googleSheetsService.appendRow([
+        patient.name,
+        patient.sex,
+        patient.dateOfBirth ? patient.dateOfBirth.toISOString().split('T')[0] : '', // Formatted Date of Birth
+        patient.phoneNumber,
+        patient.email || '', // Email address
+        patient.createdAt ? patient.createdAt.toISOString().split('T')[0] : '', // First Appointment Date
+        visitDate // Current Date (representing Next Appointment)
+      ]);
+      console.log(`Visit for returning patient ${patient.name} recorded in Google Sheet.`);
+    } catch (sheetError: any) {
+      console.warn(`Warning: Could not record returning patient visit to Google Sheet: ${sheetError.message}`);
+      // Log a warning if saving to Google Sheets fails, but do not block the patient record.
+    }
+
+    // You might want to return some confirmation or the patient data
+    return { message: 'Returning guest visit recorded successfully.', patientName: patient.name, visitDate };
   }
 
   async getAllPatients() {

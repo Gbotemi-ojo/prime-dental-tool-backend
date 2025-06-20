@@ -25,7 +25,8 @@ export const users = mysqlTable("users", {
   username: varchar("username", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).unique(),
-  role: varchar("role", { length: 50, enum: ['owner', 'staff', 'nurse'] }).notNull(), // 'nurse' role added here
+  // UPDATED: Added 'doctor' to the enum for the role field
+  role: varchar("role", { length: 50, enum: ['owner', 'staff', 'nurse', 'doctor'] }).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -106,7 +107,7 @@ export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
 export const inventoryItems = mysqlTable("inventory_items", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull().unique(), // e.g., "Gloves", "Syringes", "Composite Resin"
-  
+
   // *** ADDED THESE TWO COLUMNS ***
   category: varchar("category", { length: 100 }).notNull(), // New: Item category (required)
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(), // New: Price per unit (required)
@@ -155,3 +156,4 @@ export const inventoryTransactionRelations = relations(inventoryTransactions, ({
     references: [users.id],
   }),
 }));
+

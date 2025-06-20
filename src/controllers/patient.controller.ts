@@ -57,6 +57,27 @@ export class PatientController {
     }
   };
 
+   recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber) {
+      res.status(400).json({ error: 'Phone number is required to record a returning guest visit.' });
+      return;
+    }
+
+    try {
+      const result = await patientService.addReturningGuest(phoneNumber);
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error('Error recording returning guest visit:', error);
+      if (error.message.includes('Patient with this phone number not found')) {
+        res.status(404).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Server error during returning guest visit recording.' });
+      }
+    }
+  };
+
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const allPatients = await patientService.getAllPatients();
