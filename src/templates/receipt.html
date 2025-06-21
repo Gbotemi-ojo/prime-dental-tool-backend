@@ -4,117 +4,288 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Receipt - Prime Dental Clinic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
             line-height: 1.6;
             color: #333;
             margin: 0;
             padding: 20px;
-            background-color: #f4f4f4;
+            background-color: #f8f9fa; /* Light background */
         }
         .container {
-            max-width: 600px;
+            width: 100%;
+            max-width: 700px; /* Slightly narrower for a cleaner look */
             margin: 20px auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-top: 5px solid #007bff; /* A nice clinic-like blue */
+            border: 1px solid #e0e0e0; /* Lighter border */
+            padding: 35px; /* Increased padding */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); /* Softer shadow */
+            background-color: #fff;
+            border-radius: 12px; /* More rounded corners */
         }
-        h1, h2, h3 {
-            color: #0056b3;
+        .header {
             text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff; /* Primary blue border */
         }
-        .header, .footer {
-            text-align: center;
-            margin-bottom: 20px;
+        .header h1 {
+            color: #007bff; /* Primary blue */
+            font-size: 2.8em; /* Larger heading */
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 3px 0;
+            font-size: 0.95em;
             color: #555;
         }
-        .details-section {
-            margin-bottom: 20px;
-            border-bottom: 1px solid #eee;
+        .section-details {
+            margin-bottom: 25px;
             padding-bottom: 15px;
+            border-bottom: 1px dashed #e9ecef; /* Dashed separator */
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px; /* Spacing between columns */
         }
-        .details-section p {
-            margin: 5px 0;
+        .section-details > div {
+            flex: 1 1 calc(50% - 15px); /* Two columns with gap */
+            min-width: 250px; /* Ensure responsiveness */
         }
-        table {
+        .section-details p {
+            margin: 4px 0;
+            font-size: 0.9em;
+        }
+        .section-details strong {
+            color: #444;
+        }
+
+        .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-bottom: 30px;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+        .items-table th, .items-table td {
+            border: 1px solid #dee2e6; /* Lighter table borders */
+            padding: 12px 15px; /* More padding */
             text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-            color: #333;
-        }
-        .total-row td {
-            font-weight: bold;
-            background-color: #e6f7ff;
-        }
-        .clinic-info {
             font-size: 0.9em;
+        }
+        .items-table thead th {
+            background-color: #e9ecef; /* Light grey header */
+            color: #495057; /* Darker text for headers */
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .items-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa; /* Zebra striping */
+        }
+        .items-table tbody tr:hover {
+            background-color: #f1f3f5; /* Subtle hover effect */
+        }
+
+        .summary-section {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #007bff; /* Primary blue separator */
+            font-size: 1.1em; /* Slightly larger summary text */
+        }
+        .summary-section p {
+            margin: 8px 0;
+        }
+        .summary-section strong {
+            color: #2c3e50; /* Darker bold text */
+        }
+        .total-due {
+            font-size: 1.4em; /* Emphasize total */
+            font-weight: 700;
+            color: #28a745; /* Green for amount paid/due */
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #ced4da;
+        }
+        .hmo-status {
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 8px; /* More rounded */
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .hmo-fully-covered {
+            background-color: #d4edda; /* Light green */
+            color: #155724; /* Dark green */
+            border: 1px solid #28a745;
+        }
+        .hmo-balance-due {
+            background-color: #fff3cd; /* Light yellow */
+            color: #856404; /* Dark yellow */
+            border: 1px solid #ffc107;
+        }
+
+        .notes-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e3f2fd; /* Light blue background */
+            border-left: 5px solid #007bff; /* Stronger accent border */
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #3f51b5; /* Indigo text */
+        }
+        .notes-section h3 {
+            color: #007bff;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.85em;
             color: #777;
-            margin-top: 20px;
+            margin-top: 40px;
+            padding-top: 25px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        .footer .clinic-contact {
+            font-weight: 500;
+            color: #495057;
+            margin-top: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+                margin: 10px auto;
+            }
+            .header h1 {
+                font-size: 2.2em;
+            }
+            .section-details > div {
+                flex: 1 1 100%; /* Stack columns on small screens */
+            }
+            .items-table th, .items-table td {
+                padding: 10px;
+                font-size: 0.85em;
+            }
+            .summary-section {
+                font-size: 1em;
+            }
+            .total-due {
+                font-size: 1.2em;
+            }
+            .hmo-status {
+                font-size: 1em;
+                padding: 6px 12px;
+            }
+            .notes-section {
+                padding: 15px;
+                font-size: 0.8em;
+            }
+            .notes-section h3 {
+                font-size: 1.1em;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Official Payment Receipt</h1>
+            <h1>Receipt</h1>
             <p><strong>Prime Dental Clinic</strong></p>
             <p>Local government, 104, New Ipaja/Egbeda Road, opposite prestige super-market,</p>
             <p>Alimosho, Ipaja Rd, Ipaja, Lagos 100006, Lagos</p>
-            <p>Phone: 0703 070 8877 | Email: {{clinicEmail}}</p>
-            <hr>
+            <p>Phone: 0703 070 8877</p>
         </div>
 
-        <div class="details-section">
-            <h2>Receipt Details</h2>
-            <p><strong>Receipt Number:</strong> {{receiptNumber}}</p>
-            <p><strong>Date:</strong> {{receiptDate}}</p>
-            <p><strong>Patient Name:</strong> {{patientName}}</p>
+        <div class="section-details">
+            <div>
+                <p><strong>Receipt Date:</strong> {{receiptDate}}</p>
+            </div>
+            <div>
+                <p><strong>Receipt ID:</strong> {{receiptNumber}}</p>
+            </div>
         </div>
 
-        <div class="details-section">
-            <h2>Services Provided</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Amount (₦)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{receiptItems}}
-                </tbody>
-            </table>
+        <div class="section-details">
+            <div>
+                <p><strong>Received From:</strong> {{patientName}}</p>
+            </div>
+            {{#if isHmoCovered}}
+            <div>
+                <p><strong>HMO Provider:</strong> {{hmoName}}</p>
+                <!-- HMO Covered amount removed as per user request to only show patient's balance -->
+            </div>
+            {{/if}}
         </div>
 
-        <div class="details-section">
-            <h2>Payment Summary</h2>
-            <p><strong>Subtotal:</strong> ₦{{subtotal}}</p>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Quantity</th>
+                    {{#unless isHmoCovered}}
+                    <th>Unit Price (₦)</th>
+                    <th>Amount (₦)</th>
+                    {{/unless}}
+                </tr>
+            </thead>
+            <tbody>
+                {{#each items}}
+                <tr>
+                    <td>{{this.description}}</td>
+                    <td>{{this.quantity}}</td>
+                    {{#unless ../isHmoCovered}}
+                    <td>₦{{this.unitPrice}}</td>
+                    <td>₦{{this.totalPrice}}</td>
+                    {{/unless}}
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
 
-            <p><strong>HMO Provider:</strong> {{hmoProvider}}</p>
-            <p><strong>HMO Covered Amount:</strong> ₦{{hmoCoveredAmount}}</p>
-
+        <div class="summary-section">
             <p><strong>Payment Method:</strong> {{paymentMethod}}</p>
-            <p style="font-size: 1.2em; font-weight: bold; color: #007bff;">
-                <strong>Total Amount Due from Patient:</strong> ₦{{amountPaid}}
-            </p>
+            {{#if isHmoCovered}}
+                {{#if totalDueFromPatient}}
+                <p class="hmo-status hmo-balance-due">HMO Partially Covered: Balance Due From Patient: ₦{{totalDueFromPatient}}</p>
+                {{else}}
+                <p class="hmo-status hmo-fully-covered">Status: Fully Covered by HMO</p>
+                {{/if}}
+            {{else}}
+                <p class="total-due">Total Amount Paid by Patient: ₦{{amountPaid}}</p>
+            {{/if}}
         </div>
+
+        {{#if latestDentalRecord}}
+        <div class="notes-section">
+            <h3>Related Treatment Context:</h3>
+            <p><strong>Provisional Diagnosis:</strong> {{latestDentalRecord.provisionalDiagnosis}}</p>
+            <p><strong>Treatment Plan:</strong> {{latestDentalRecord.treatmentPlan}}</p>
+        </div>
+        {{/if}}
 
         <div class="footer">
-            <p>Thank you for choosing Prime Dental Clinic!</p>
-            <p>we appreciate your patronage</p>
-            <p class="clinic-info">
-                This is an automated email, please do not reply.
+            <p>Thank you for your patronage!</p>
+            <p>Signature: _________________________</p>
+            <p class="clinic-contact">
+                Prime Dental Clinic |
+                Local government, 104, New Ipaja/Egbeda Road, opposite prestige super-market, Alimosho, Ipaja Rd, Ipaja, Lagos 100006, Lagos |
+                Phone: 0703 070 8877 |
+                info@yourclinic.com
             </p>
         </div>
     </div>

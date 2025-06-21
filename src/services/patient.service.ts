@@ -1,7 +1,7 @@
 // src/services/patient.service.ts
 import { eq, ne, and, desc } from 'drizzle-orm';
 import { db } from '../config/database';
-import { patients, dentalRecords, users } from '../../db/schema';
+import { patients, dentalRecords, users } from '../../db/schema'; // Ensure schema is up-to-date with your latest version
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { googleSheetsService } from './googleSheets.service';
 import { emailService } from './email.service'; // Import the email service
@@ -16,13 +16,14 @@ interface NewPatientData {
   dateOfBirth?: string | null; // Optional, can be null
   phoneNumber: string;
   email?: string | null; // Optional, can be null
+  hmo?: { name: string; status?: string } | null; // Updated HMO type for clarity
 }
 
 export class PatientService {
   constructor() {}
 
   async addGuestPatient(patientData: NewPatientData) {
-    const { name, sex, dateOfBirth, phoneNumber, email } = patientData;
+    const { name, sex, dateOfBirth, phoneNumber, email, hmo } = patientData;
 
     // Check if a patient with this phone number already exists
     const existingPatient = await db.select()
@@ -34,18 +35,23 @@ export class PatientService {
       throw new Error('A patient with this phone number already exists.');
     }
 
-    // Insert the new patient into the database
+    const now = new Date(); // Current timestamp for operation
+
+    // Insert the new patient into the database.
+    // firstAppointment and lastAppointment are NOT inserted into DB, only createdAt and updatedAt.
     const [inserted] = await db.insert(patients).values({
       name,
       sex,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, // Convert date string to Date object
       phoneNumber,
       email: email || null, // Ensure email is null if empty string
-      createdAt: new Date(), // Add creation timestamp
-      updatedAt: new Date(), // Add update timestamp
+      hmo: hmo || null, // Add hmo field to insertion (as JSON object from frontend)
+      createdAt: now, // Add creation timestamp (this will act as firstAppointment for sheets)
+      updatedAt: now, // Add update timestamp
     });
 
     // Retrieve the newly inserted patient using its insertId
+    // Ensure we are only selecting fields present in the DB schema
     const [newPatient] = await db.select().from(patients).where(eq(patients.id, inserted.insertId)).limit(1);
 
     if (!newPatient) {
@@ -54,27 +60,36 @@ export class PatientService {
 
     // Attempt to save to Google Sheets after successful DB insertion
     try {
-      // UPDATED: Format current date to ISO-MM-DD for Google Sheets
-      const currentFormattedDate = new Date().toISOString().split('T')[0];
+      // Format dates to ISO-MM-DD for Google Sheets
+      const dobFormatted = newPatient.dateOfBirth ? newPatient.dateOfBirth.toISOString().split('T')[0] : '';
+      // 'First Appointment' for Google Sheets is the patient's creation timestamp in the DB
+      const firstApptFormatted = newPatient.createdAt ? newPatient.createdAt.toISOString().split('T')[0] : '';
+      // 'Last Appointment' (Next Appointment) for a new guest patient should be blank in Google Sheets
+      const lastApptFormatted = '';
+
+      // Extract HMO name directly from the hmo object received from the frontend
+      const hmoNameForSheet = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name
+        ? (newPatient.hmo as { name?: string }).name
+        : ''; // Use empty string if HMO is null or invalid
+
       await googleSheetsService.appendRow([
         newPatient.name,
         newPatient.sex,
-        newPatient.dateOfBirth ? newPatient.dateOfBirth.toISOString().split('T')[0] : '', // Format date to ISO-MM-DD
+        dobFormatted,
         newPatient.phoneNumber,
-        newPatient.email || '', // Ensure email is an empty string if null
-        currentFormattedDate // Use the formatted submission date for 'firstAppointment'
+        newPatient.email || '',
+        hmoNameForSheet, // UPDATED: Send only HMO name to Google Sheets
+        firstApptFormatted, // First Appointment (from DB createdAt)
+        lastApptFormatted   // UPDATED: Blank for initial registration in Google Sheets
       ]);
       console.log('Patient data successfully appended to Google Sheet (Patient Registration Sheet).');
     } catch (sheetError: any) {
       console.warn(`Warning: Could not save patient to Google Sheet during registration: ${sheetError.message}`);
-      // Log a warning if saving to Google Sheets fails, but do not block the patient creation
-      // if database insertion was successful.
     }
 
-    // NEW: Send email notification to owner and staff about new patient registration
+    // Send email notification to owner and staff about new patient registration
     try {
       const ownerEmail = process.env.OWNER_EMAIL || '';
-      // Dynamically get staff emails (excluding nurses) using the email service's private method
       const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses();
 
       const allRecipients = [...staffEmails];
@@ -83,16 +98,22 @@ export class PatientService {
       }
 
       if (allRecipients.length > 0) {
+        // 'First Appointment' for email content is the patient's createdAt from DB
+        const firstApptEmail = newPatient.createdAt ? newPatient.createdAt.toLocaleDateString() : 'N/A';
+        // 'Last Appointment' for email on initial registration is N/A
+        const lastApptEmail = 'N/A';
+
         const subject = 'New Guest Patient Registration';
         const htmlContent = `
-            <h2>New Guest Patient Registered!</h2>
-            <p>A new guest patient has been registered in the system:</p>
+            <h2>New Patient Registered!</h2>
+            <p>A new patient has been registered in the system:</p>
             <ul>
                 <li><strong>Name:</strong> ${newPatient.name}</li>
                 <li><strong>Sex:</strong> ${newPatient.sex}</li>
                 <li><strong>Date of Birth:</strong> ${newPatient.dateOfBirth ? newPatient.dateOfBirth.toLocaleDateString() : 'N/A'}</li>
                 <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
                 <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
+                <li><strong>HMO:</strong> ${newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : 'N/A'}</li>
                 <li><strong>Registration Date:</strong> ${new Date(newPatient.createdAt!).toLocaleDateString()}</li>
             </ul>
             <p>Please log in to the EMR system for more details.</p>
@@ -100,8 +121,6 @@ export class PatientService {
             <p>Prime Dental Clinic EMR System</p>
           `;
 
-        // Send to all recipients (can be optimized to a single BCC call if many recipients)
-        // For simplicity and directness, sending as 'to' for now as requested for notification
         await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
         console.log('New guest patient registration email sent to owner and staff.');
       } else {
@@ -122,6 +141,7 @@ export class PatientService {
    */
   async addReturningGuest(phoneNumber: string) {
     // Find the patient by phone number
+    // Ensure we are only selecting fields present in the DB schema
     const [patient] = await db.select()
       .from(patients)
       .where(eq(patients.phoneNumber, phoneNumber))
@@ -131,36 +151,87 @@ export class PatientService {
       throw new Error('Patient with this phone number not found.');
     }
 
-    const visitDate = new Date().toISOString().split('T')[0]; // Current date for the visit
+    const now = new Date(); // Current date for the visit
+
+    // No database update for `lastAppointment` as it's not a DB field.
+    // The `updatedAt` field will still automatically update on any patient data change,
+    // but the `lastAppointment` concept for Google Sheets is purely derived from `now`.
 
     // Record the visit in Google Sheets
     try {
-      // Ensure your Google Sheet is set up to receive these columns:
-      // Name, Gender, Date of Birth, Phone Number, Email, First Appointment, Next Appointment (Current Date)
+      // Format dates to ISO-MM-DD for Google Sheets
+      const dobFormatted = patient?.dateOfBirth ? patient.dateOfBirth.toISOString().split('T')[0] : '';
+      // 'First Appointment' for Google Sheets is derived from patient.createdAt (original registration date)
+      const firstApptFormatted = patient?.createdAt ? patient.createdAt.toISOString().split('T')[0] : '';
+      // 'Last Appointment' (Next Appointment) for Google Sheets is the current 'now' for this returning visit
+      const lastApptFormatted = now.toISOString().split('T')[0];
+
+      // Extract HMO name directly
+      const hmoNameForSheet = patient?.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name
+        ? (patient.hmo as { name?: string }).name
+        : '';
+
       await googleSheetsService.appendRow([
-        patient.name,
-        patient.sex,
-        patient.dateOfBirth ? patient.dateOfBirth.toISOString().split('T')[0] : '', // Formatted Date of Birth
-        patient.phoneNumber,
-        patient.email || '', // Email address
-        patient.createdAt ? patient.createdAt.toISOString().split('T')[0] : '', // First Appointment Date
-        visitDate // Current Date (representing Next Appointment)
+        patient?.name,
+        patient?.sex,
+        dobFormatted,
+        patient?.phoneNumber,
+        patient?.email || '',
+        hmoNameForSheet, // UPDATED: Send only HMO name to Google Sheets
+        firstApptFormatted, // First Appointment Date (from DB createdAt)
+        lastApptFormatted   // UPDATED: Current date for returning visit
       ]);
-      console.log(`Visit for returning patient ${patient.name} recorded in Google Sheet.`);
+      console.log(`Visit for returning patient ${patient?.name} recorded in Google Sheet.`);
     } catch (sheetError: any) {
       console.warn(`Warning: Could not record returning patient visit to Google Sheet: ${sheetError.message}`);
-      // Log a warning if saving to Google Sheets fails, but do not block the patient record.
     }
 
-    // You might want to return some confirmation or the patient data
-    return { message: 'Returning guest visit recorded successfully.', patientName: patient.name, visitDate };
+    // NEW: Send email notification for returning patient check-in
+    try {
+      const ownerEmail = process.env.OWNER_EMAIL || '';
+      const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses();
+
+      const allRecipients = [...staffEmails];
+      if (ownerEmail && !allRecipients.includes(ownerEmail)) {
+        allRecipients.push(ownerEmail);
+      }
+
+      if (allRecipients.length > 0) {
+        const subject = `Returning Patient Check-in: ${patient.name}`;
+        const htmlContent = `
+            <h2>Returning Patient Checked In!</h2>
+            <p>A returning patient has checked into the system:</p>
+            <ul>
+                <li><strong>Name:</strong> ${patient.name}</li>
+                <li><strong>Phone Number:</strong> ${patient.phoneNumber}</li>
+                <li><strong>Email:</strong> ${patient.email || 'N/A'}</li>
+                <li><strong>HMO:</strong> ${patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : 'N/A'}</li>
+                <li><strong>Check-in Date:</strong> ${now.toLocaleDateString()}</li>
+            </ul>
+            <p>Please log in to the EMR system for more details or to update their dental record.</p>
+            <p>Thank you,</p>
+            <p>Prime Dental Clinic EMR System</p>
+          `;
+
+        await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
+        console.log('Returning patient check-in email sent to owner and staff.');
+      } else {
+        console.warn('No owner or staff emails configured to send returning patient notification.');
+      }
+    } catch (emailError: any) {
+      console.error(`Error sending returning patient check-in email: ${emailError.message}`);
+    }
+
+    return { message: 'Returning guest visit recorded successfully.', patientName: patient.name, visitDate: now.toISOString().split('T')[0] };
   }
 
   async getAllPatients() {
+    // When fetching patients, firstAppointment and lastAppointment are not part of the DB model
     return await db.select().from(patients);
   }
 
   async getPatientById(patientId: number) {
+    // When fetching a patient, firstAppointment and lastAppointment are not part of the DB model
     const [patient] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
     return patient;
   }
@@ -189,8 +260,19 @@ export class PatientService {
       }
     }
 
+    // Ensure we don't try to update non-existent DB fields like firstAppointment/lastAppointment
+    const dbUpdateData: Partial<PatientInsert> = { ...patientData };
+    // Explicitly remove `firstAppointment` and `lastAppointment` from `dbUpdateData` if they somehow get included,
+    // as they are not meant to be database columns.
+    if ('firstAppointment' in dbUpdateData) {
+      delete dbUpdateData.firstAppointment;
+    }
+    if ('lastAppointment' in dbUpdateData) {
+      delete dbUpdateData.lastAppointment;
+    }
+
     await db.update(patients).set({
-      ...patientData,
+      ...dbUpdateData,
       updatedAt: new Date(),
     }).where(eq(patients.id, patientId));
 
@@ -207,6 +289,7 @@ export class PatientService {
       patientId,
       doctorId,
       ...recordData,
+      treatmentDone: recordData.treatmentDone || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -255,6 +338,7 @@ export class PatientService {
         xrayFindings: dentalRecords.xrayFindings,
         provisionalDiagnosis: dentalRecords.provisionalDiagnosis,
         treatmentPlan: dentalRecords.treatmentPlan,
+        treatmentDone: dentalRecords.treatmentDone,
         calculus: dentalRecords.calculus,
         createdAt: dentalRecords.createdAt,
         updatedAt: dentalRecords.updatedAt,
@@ -296,6 +380,7 @@ export class PatientService {
       xrayFindings: dentalRecords.xrayFindings,
       provisionalDiagnosis: dentalRecords.provisionalDiagnosis,
       treatmentPlan: dentalRecords.treatmentPlan,
+      treatmentDone: dentalRecords.treatmentDone,
       calculus: dentalRecords.calculus,
       createdAt: dentalRecords.createdAt,
       updatedAt: dentalRecords.updatedAt,
@@ -341,6 +426,7 @@ export class PatientService {
       xrayFindings: dentalRecords.xrayFindings,
       provisionalDiagnosis: dentalRecords.provisionalDiagnosis,
       treatmentPlan: dentalRecords.treatmentPlan,
+      treatmentDone: dentalRecords.treatmentDone,
       calculus: dentalRecords.calculus,
       createdAt: dentalRecords.createdAt,
       updatedAt: dentalRecords.updatedAt,

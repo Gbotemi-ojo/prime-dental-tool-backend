@@ -27,6 +27,7 @@ CREATE TABLE `dental_records` (
 	`x_ray_findings` text,
 	`provisional_diagnosis` json,
 	`treatment_plan` json,
+	`treatment_done` text,
 	`calculus` text,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
@@ -70,6 +71,7 @@ CREATE TABLE `patients` (
 	`date_of_birth` timestamp,
 	`phone_number` varchar(20) NOT NULL,
 	`email` varchar(255),
+	`hmo` json,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `patients_id` PRIMARY KEY(`id`),
@@ -91,3 +93,7 @@ CREATE TABLE `users` (
 	CONSTRAINT `users_email_unique` UNIQUE(`email`)
 );
 --> statement-breakpoint
+ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_doctor_id_users_id_fk` FOREIGN KEY (`doctor_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_item_id_inventory_items_id_fk` FOREIGN KEY (`item_id`) REFERENCES `inventory_items`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;

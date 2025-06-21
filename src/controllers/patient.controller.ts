@@ -17,8 +17,9 @@ export class PatientController {
 
   // PATIENT MANAGEMENT
 
-   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    const { name, sex, dateOfBirth, phoneNumber, email } = req.body;
+    submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
+    // UPDATED: Destructure hmo from req.body
+    const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
 
     // Basic client-side validation (can be more robust with a validation library)
     if (!name || !sex || !phoneNumber) {
@@ -31,13 +32,14 @@ export class PatientController {
     }
 
     try {
-      // Delegate the business logic to the service
+      // Delegate the business logic to the service, including hmo
       const newPatient = await patientService.addGuestPatient({
         name,
         sex,
         dateOfBirth,
         phoneNumber,
         email,
+        hmo, // NEW: Pass HMO data
       });
 
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
@@ -57,7 +59,7 @@ export class PatientController {
     }
   };
 
-   recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
+    recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
     const { phoneNumber } = req.body;
 
     if (!phoneNumber) {
@@ -128,7 +130,8 @@ export class PatientController {
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    const { name, sex, dateOfBirth, phoneNumber, email } = req.body;
+    // UPDATED: Include hmo in destructuring
+    const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
 
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -150,6 +153,7 @@ export class PatientController {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         phoneNumber,
         email,
+        hmo, // NEW: Include hmo in update data
       };
 
       const result = await patientService.updatePatient(patientId, updateData);
@@ -208,6 +212,8 @@ export class PatientController {
       xrayFindings: req.body.xrayFindings || null,
       provisionalDiagnosis: req.body.provisionalDiagnosis || null,
       treatmentPlan: req.body.treatmentPlan || null,
+      // NEW: Include treatmentDone from req.body
+      treatmentDone: req.body.treatmentDone || null,
       calculus: req.body.calculus || null,
     };
 
@@ -303,7 +309,8 @@ export class PatientController {
         'familySocialHistory', 'extraOralExamination', 'intraOralExamination',
         'teethPresent', 'cariousCavity', 'filledTeeth', 'missingTeeth',
         'fracturedTeeth', 'periodontalCondition', 'oralHygiene',
-        'investigations', 'xrayFindings', 'provisionalDiagnosis', 'treatmentPlan', 'calculus'
+        'investigations', 'xrayFindings', 'provisionalDiagnosis', 'treatmentPlan', 'calculus',
+        'treatmentDone' // NEW: Include treatmentDone in allowed fields for update
       ];
 
       for (const field of allowedFields) {

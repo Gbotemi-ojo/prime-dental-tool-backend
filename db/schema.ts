@@ -9,6 +9,8 @@ export const patients = mysqlTable("patients", {
   dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
   phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique(),
   email: varchar("email", { length: 255 }).unique(),
+  // NEW: Optional HMO field for patients
+  hmo: json("hmo"), // Storing as JSON to support frontend dropdown structure (e.g., { name: "HMO Name", status: "ONBOARD" })
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
@@ -81,6 +83,8 @@ export const dentalRecords = mysqlTable("dental_records", {
 
   provisionalDiagnosis: json("provisional_diagnosis"),
   treatmentPlan: json("treatment_plan"),
+  // NEW: Treatment Done field
+  treatmentDone: text("treatment_done"), // Field to record treatments actually performed
 
   calculus: text("calculus"),
 
@@ -156,4 +160,3 @@ export const inventoryTransactionRelations = relations(inventoryTransactions, ({
     references: [users.id],
   }),
 }));
-

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "74c34352-23c5-432e-83ed-9bd10df3eb20",
+  "id": "19d002b6-8831-46d4-941f-446d8b518577",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -207,6 +207,13 @@
         "treatment_plan": {
           "name": "treatment_plan",
           "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "treatment_done": {
+          "name": "treatment_done",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -540,6 +547,13 @@
         "email": {
           "name": "email",
           "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hmo": {
+          "name": "hmo",
+          "type": "json",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

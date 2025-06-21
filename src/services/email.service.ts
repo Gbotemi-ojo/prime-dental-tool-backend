@@ -1,15 +1,15 @@
 import nodemailer from 'nodemailer';
 import fs from 'fs/promises';
 import path from 'path';
-import { db } from '../config/database'; // Assuming this import is still needed for other parts of the service
-import { users } from '../../db/schema'; // Assuming this import is still needed for other parts of the service
-import { eq, ne } from 'drizzle-orm'; // 'ne' (not equal) is needed for filtering roles
+import handlebars from 'handlebars'; // Import handlebars
+import { db } from '../config/database';
+import { users } from '../../db/schema';
+import { eq, ne } from 'drizzle-orm';
 import { googleSheetsService } from './googleSheets.service'; // Import the Google Sheets Service
 
 export class EmailService {
     private transporter: nodemailer.Transporter;
     private ownerEmail: string;
-    // Removed staffEmail as it will now be dynamically fetched from DB
 
     constructor() {
         this.ownerEmail = process.env.OWNER_EMAIL || '';
@@ -53,20 +53,21 @@ export class EmailService {
     }
 
     /**
-     * Reads an HTML email template from the templates directory.
+     * Reads and compiles an HTML email template using Handlebars.
      * @param templateName The name of the template file (e.g., 'invoice.html').
-     * @returns The content of the template as a string.
+     * @returns A compiled Handlebars template function.
      * @throws Error if the template file cannot be read.
      */
-    private async readTemplate(templateName: string): Promise<string> {
+    private async compileTemplate(templateName: string): Promise<handlebars.TemplateDelegate<any>> {
         const templatePath = path.join(__dirname, '../templates', templateName);
-        console.log(`[DEBUG] Attempting to read template from: ${templatePath}`);
+        console.log(`[DEBUG] Attempting to read and compile template from: ${templatePath}`);
 
         try {
-            return await fs.readFile(templatePath, 'utf-8');
+            const templateSource = await fs.readFile(templatePath, 'utf-8');
+            return handlebars.compile(templateSource);
         } catch (error) {
-            console.error(`Error reading email template ${templateName} from path: ${templatePath}`, error);
-            throw new Error(`Failed to read email template: ${templateName}`);
+            console.error(`Error reading or compiling email template ${templateName} from path: ${templatePath}`, error);
+            throw new Error(`Failed to read or compile email template: ${templateName}`);
         }
     }
 
@@ -128,38 +129,57 @@ export class EmailService {
      * @returns The result of the email sending operation.
      */
     async sendInvoiceEmail(patientEmail: string, invoiceData: any, senderUserId: number) {
-        const template = await this.readTemplate('invoice.html');
+        console.log("[EmailService Debug] invoiceData received (before processing):", invoiceData); // Debug log for incoming data
+
+        const template = await this.compileTemplate('invoice.html'); // Use compileTemplate
         const subject = `Invoice from Prime Dental Clinic`;
 
-        let htmlContent = template
-            .replace('{{invoiceDate}}', invoiceData.invoiceDate || 'N/A')
-            .replace('{{patientName}}', invoiceData.patientName || 'Patient')
-            .replace('{{totalAmount}}', invoiceData.totalAmount ? invoiceData.totalAmount.toFixed(2) : '0.00');
+        // Transform invoiceData.items into the 'services' format expected by the Handlebars template
+        // Ensure totalPrice is formatted to 2 decimal places for display
+        const servicesForTemplate = Array.isArray(invoiceData.items) ? invoiceData.items.map((item: any) => {
+            const calculatedTotalPrice = parseFloat(item.totalPrice || 0); // Ensure it's a number
+            console.log(`[EmailService Debug] Item: ${item.description}, Raw Total Price: ${item.totalPrice}, Parsed Total Price: ${calculatedTotalPrice}, Formatted: ${calculatedTotalPrice.toFixed(2)}`);
+            return {
+                name: item.description, // Map 'description' from items to 'name' for template
+                totalPrice: calculatedTotalPrice.toFixed(2), // Format totalPrice to 2 decimal places
+            };
+        }) : [];
 
-        let itemsHtml = '';
-        if (invoiceData.items && Array.isArray(invoiceData.items)) {
-            itemsHtml = invoiceData.items.map((item: any) => `
-                <tr>
-                    <td>${item.description || 'Service/Item'}</td>
-                    <td>${item.quantity || 1}</td>
-                    <td>${(item.unitPrice || 0).toFixed(2)}</td>
-                    <td>${((item.quantity || 1) * (item.unitPrice || 0)).toFixed(2)}</td>
-                </tr>
-            `).join('');
-        }
-        htmlContent = htmlContent.replace('{{invoiceItems}}', itemsHtml);
+        console.log('[EmailService Debug] servicesForTemplate (after formatting):', servicesForTemplate); // Log for debugging
+
+        // Prepare data for the Handlebars template
+        const templateData = {
+            invoiceNumber: invoiceData.invoiceNumber || 'N/A',
+            invoiceDate: invoiceData.invoiceDate || 'N/A',
+            patientName: invoiceData.patientName || 'Patient',
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com',
+            isHmoCovered: invoiceData.isHmoCovered || false,
+            hmoName: invoiceData.hmoName || 'N/A',
+            services: servicesForTemplate, // Use the transformed array here
+
+            // Ensure totals are formatted to 2 decimal places
+            subtotal: parseFloat(invoiceData.subtotal || 0).toFixed(2),
+            // Changed key from 'totalDueFromPatient' to 'totalDue' to match template's variable name for main display
+            totalDue: parseFloat(invoiceData.totalDueFromPatient || 0).toFixed(2), // This is the total patient due
+            coveredAmount: parseFloat(invoiceData.coveredAmount || 0).toFixed(2), // Add coveredAmount for template
+            
+            paymentMethod: invoiceData.paymentMethod || 'N/A', // This might not be relevant for an invoice, but keeping for flexibility
+            latestDentalRecord: invoiceData.latestDentalRecord || null, // Pass entire object
+        };
+
+        console.log('[EmailService Debug] templateData sent to Handlebars:', templateData); // Log for debugging
+
+        const htmlContent = template(templateData); // Render the template with data
 
         // Dynamically get BCC recipients
         const staffBccRecipients = await this._getStaffEmailsExcludingNurses();
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
-            // Add owner email if it's set and not already in the staff list (to avoid duplicates)
             if (!bccRecipients.includes(this.ownerEmail)) {
                 bccRecipients.push(this.ownerEmail);
             }
         }
         const validBccRecipients = bccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-
 
         return await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
     }
@@ -172,39 +192,39 @@ export class EmailService {
      * @returns The result of the email sending operation.
      */
     async sendReceiptEmail(patientEmail: string, receiptData: any, senderUserId: number) {
-        const template = await this.readTemplate('receipt.html');
+        const template = await this.compileTemplate('receipt.html'); // Use compileTemplate for receipt too
         const subject = `Payment Receipt from Prime Dental Clinic - #${receiptData.receiptNumber}`;
 
-        const calculatedSubtotal = receiptData.items ? receiptData.items.reduce((sum: number, item: any) => sum + (item.amount || 0), 0) : 0;
-        const totalDueFromPatient = calculatedSubtotal - (receiptData.hmoCoveredAmount || 0);
+        // CORRECTED: Ensure properties match what receipt.html expects (description, quantity, unitPrice, totalPrice)
+        const itemsForReceiptTemplate = Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
+            description: item.description, // Use 'description' as expected by template
+            quantity: item.quantity,
+            unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2) : parseFloat(item.unitPrice || 0).toFixed(2),
+            totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2) : parseFloat(item.totalPrice || 0).toFixed(2),
+        })) : [];
 
-        let htmlContent = template
-            .replace('{{receiptNumber}}', receiptData.receiptNumber || 'N/A')
-            .replace('{{receiptDate}}', receiptData.receiptDate || 'N/A')
-            .replace('{{patientName}}', receiptData.patientName || 'Patient')
-            .replace('{{subtotal}}', calculatedSubtotal.toFixed(2))
-            .replace('{{amountPaid}}', totalDueFromPatient.toFixed(2))
-            .replace('{{paymentMethod}}', receiptData.paymentMethod || 'N/A')
-            .replace('{{hmoProvider}}', receiptData.hmoProvider && receiptData.hmoProvider !== 'N/A' ? receiptData.hmoProvider : 'N/A')
-            .replace('{{hmoCoveredAmount}}', (receiptData.hmoCoveredAmount || 0).toFixed(2))
-            .replace('{{clinicEmail}}', process.env.EMAIL_FROM || 'info@yourclinic.com');
+        const templateData = {
+            receiptNumber: receiptData.receiptNumber || 'N/A',
+            receiptDate: receiptData.receiptDate || 'N/A',
+            patientName: receiptData.patientName || 'Patient',
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com',
+            isHmoCovered: receiptData.isHmoCovered || false,
+            hmoName: receiptData.hmoName || 'N/A',
+            coveredAmount: parseFloat(receiptData.coveredAmount || 0).toFixed(2), // Ensure this is a number for template
+            items: itemsForReceiptTemplate, // Use the transformed array here, named 'items' as per template
+            subtotal: parseFloat(receiptData.subtotal || 0).toFixed(2), // Ensure this is a number for template
+            amountPaid: parseFloat(receiptData.amountPaid || 0).toFixed(2), // This is the actual amount patient paid (number for template)
+            totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0).toFixed(2), // Balance they owed from frontend (number for template)
+            paymentMethod: receiptData.paymentMethod || 'N/A',
+            latestDentalRecord: receiptData.latestDentalRecord || null,
+        };
 
-        let itemsHtml = '';
-        if (receiptData.items && Array.isArray(receiptData.items)) {
-            itemsHtml = receiptData.items.map((item: any) => `
-                <tr>
-                    <td>${item.description || 'Service/Item'}</td>
-                    <td>₦${(item.amount || 0).toFixed(2)}</td>
-                </tr>
-            `).join('');
-        }
-        htmlContent = htmlContent.replace('{{receiptItems}}', itemsHtml);
+        const htmlContent = template(templateData); // Render the template with data
 
         // Dynamically get BCC recipients
         const staffBccRecipients = await this._getStaffEmailsExcludingNurses();
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
-            // Add owner email if it's set and not already in the staff list (to avoid duplicates)
             if (!bccRecipients.includes(this.ownerEmail)) {
                 bccRecipients.push(this.ownerEmail);
             }
@@ -217,12 +237,27 @@ export class EmailService {
         // If the email was sent successfully, append the receipt data to Google Sheets
         if (emailResult.success) {
             try {
-                await googleSheetsService.appendReceipts(receiptData);
+                // Prepare data specifically for Google Sheets, ensuring all numerical values are handled
+                const receiptDataForSheet = {
+                    ...receiptData, // Copy all existing properties
+                    // Ensure numerical values are explicitly parsed as floats, defaulting to 0
+                    subtotal: parseFloat(receiptData.subtotal || 0),
+                    amountPaid: parseFloat(receiptData.amountPaid || 0),
+                    coveredAmount: parseFloat(receiptData.coveredAmount || 0),
+                    totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0),
+                    // Map items to ensure totalPrice and unitPrice are numbers
+                    items: Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
+                        ...item,
+                        unitPrice: parseFloat(item.unitPrice || 0),
+                        totalPrice: parseFloat(item.totalPrice || 0)
+                    })) : []
+                };
+
+                // Now, pass the sanitized data to Google Sheets service
+                await googleSheetsService.appendReceipts(receiptDataForSheet);
                 console.log('Receipt data successfully logged to Google Sheet.');
             } catch (sheetError) {
                 console.error('Failed to log receipt data to Google Sheet:', sheetError);
-                // You might want to handle this error more robustly, e.g.,
-                // by sending an internal notification or retrying.
             }
         }
 

@@ -15,7 +15,9 @@ export class InvoiceController {
   constructor() {}
 
   sendInvoice = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { patientId, invoiceNumber, invoiceDate, totalAmount, items } = req.body;
+    // IMPORTANT: Ensure all expected fields from the frontend payload are destructured here.
+    // Specifically added subtotal and totalDueFromPatient.
+    const { patientId, invoiceNumber, invoiceDate, totalAmount, items, subtotal, totalDueFromPatient, isHmoCovered, hmoName, coveredAmount, notes, clinicName, clinicAddress, clinicPhone, clinicEmail, latestDentalRecord } = req.body;
     const senderUserId = req.user!.userId; // User sending the invoice
 
     if (!patientId || !invoiceNumber || !invoiceDate || totalAmount === undefined || !items || !Array.isArray(items)) {
@@ -35,13 +37,37 @@ export class InvoiceController {
         return;
       }
 
+      // Construct the invoiceData object, ensuring all necessary fields for the email service
+      // and the Handlebars template are included.
       const invoiceData = {
+        patientId, // Passed for backend context, not directly used in email template
         invoiceNumber,
         invoiceDate,
         patientName: patient.name,
-        totalAmount,
-        items,
+        // Crucial for email totals:
+        subtotal: subtotal,
+        totalAmount: totalAmount, // This is `totalDue` from frontend (Total Amount Due from Patient)
+        totalDueFromPatient: totalDueFromPatient, // Explicitly pass for HMO logic in template
+        
+        // Pass the items array as received from the frontend.
+        // The EmailService will transform 'items' into 'services' for the template.
+        items: items, 
+
+        // Include HMO related fields if available
+        isHmoCovered: isHmoCovered,
+        hmoName: hmoName,
+        coveredAmount: coveredAmount, // Ensure this is passed if HMO covered amount is relevant
+        
+        notes: notes,
+        clinicName: clinicName,
+        clinicAddress: clinicAddress,
+        clinicPhone: clinicPhone,
+        clinicEmail: clinicEmail,
+        latestDentalRecord: latestDentalRecord, // Pass latest dental record for notes
       };
+
+      console.log("[Controller Debug] Sending invoiceData to emailService:", invoiceData);
+
 
       const emailResult = await emailService.sendInvoiceEmail(patient.email, invoiceData, senderUserId);
 
