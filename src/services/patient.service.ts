@@ -103,7 +103,7 @@ export class PatientService {
         // 'Last Appointment' for email on initial registration is N/A
         const lastApptEmail = 'N/A';
 
-        const subject = 'New Guest Patient Registration';
+        const subject = 'New Patient Registration';
         const htmlContent = `
             <h2>New Patient Registered!</h2>
             <p>A new patient has been registered in the system:</p>
@@ -122,7 +122,7 @@ export class PatientService {
           `;
 
         await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
-        console.log('New guest patient registration email sent to owner and staff.');
+        console.log('New patient registration email sent to owner and staff.');
       } else {
         console.warn('No owner or staff emails configured to send new guest patient notification.');
       }
