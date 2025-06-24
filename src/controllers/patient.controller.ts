@@ -1,7 +1,6 @@
-// src/controllers/patient.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { patientService } from '../services/patient.service';
-import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { InferInsertModel } from 'drizzle-orm';
 import { patients, dentalRecords } from '../../db/schema';
 
 // Extend the Request type to include the user property from your middleware
@@ -15,15 +14,13 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
-  // PATIENT MANAGEMENT
+  // --- PATIENT & FAMILY MANAGEMENT ---
 
-    submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    // UPDATED: Destructure hmo from req.body
+  submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
     const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
 
-    // Basic client-side validation (can be more robust with a validation library)
     if (!name || !sex || !phoneNumber) {
-      res.status(400).json({ error: 'Name, sex, and phone number are required.' });
+      res.status(400).json({ error: 'Name, sex, and phone number are required for a primary patient.' });
       return;
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -32,38 +29,101 @@ export class PatientController {
     }
 
     try {
-      // Delegate the business logic to the service, including hmo
       const newPatient = await patientService.addGuestPatient({
         name,
         sex,
         dateOfBirth,
         phoneNumber,
         email,
-        hmo, // NEW: Pass HMO data
+        hmo,
       });
 
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
 
     } catch (error: any) {
       console.error('Error submitting guest patient info:', error);
-      // Handle specific errors thrown by the service
-      if (error.message.includes('phone number already exists')) { // Check message for conflict
-        res.status(409).json({ error: error.message }); // Send the specific error message
-      } else if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') { // Example SQL duplicate entry codes
-        // This catch for ER_DUP_ENTRY might still be relevant if email unique constraint causes it
-        res.status(409).json({ error: 'A patient with this email or phone number already exists.' });
-      }
-      else {
+      if (error.message.includes('phone number already exists')) {
+        res.status(409).json({ error: error.message });
+      } else {
         res.status(500).json({ error: 'Server error during patient submission.' });
       }
     }
   };
 
-    recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
+  /**
+   * Controller to handle the submission of a whole family unit at once.
+   * Creates a family head and their associated members.
+   */
+  submitGuestFamilyPatient = async (req: Request, res: Response): Promise<void> => {
+    const { members, ...headData } = req.body;
+    const { name, sex, phoneNumber, email } = headData;
+
+    // --- Validation ---
+    if (!name || !sex || !phoneNumber) {
+      res.status(400).json({ error: 'Name, sex, and phone number are required for the family head.' });
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: 'Invalid email address format for the family head.' });
+      return;
+    }
+    if (!Array.isArray(members) || members.length === 0) {
+        res.status(400).json({ error: 'At least one family member must be provided in the "members" array.' });
+        return;
+    }
+    for (const member of members) {
+        if (!member.name || !member.sex) {
+            res.status(400).json({ error: 'Each family member must have a name and sex.' });
+            return;
+        }
+    }
+
+    try {
+        const newFamily = await patientService.addGuestFamilyPatient(req.body);
+        res.status(201).json({ message: 'Family patient information submitted successfully.', family: newFamily });
+
+    } catch (error: any) {
+        console.error('Error submitting guest family patient info:', error);
+        if (error.message.includes('phone number already exists')) {
+            res.status(409).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: 'Server error during family patient submission.' });
+        }
+    }
+  };
+
+
+  addFamilyMember = async (req: Request, res: Response): Promise<void> => {
+    const headId = parseInt(req.params.headId, 10);
+    const { name, sex, dateOfBirth } = req.body;
+
+    if (isNaN(headId)) {
+      res.status(400).json({ error: 'Invalid family head ID.' });
+      return;
+    }
+    if (!name || !sex) {
+      res.status(400).json({ error: 'Name and sex are required for a family member.' });
+      return;
+    }
+
+    try {
+      const newMember = await patientService.addFamilyMember(headId, { name, sex, dateOfBirth });
+      res.status(201).json({ message: 'Family member added successfully.', patient: newMember });
+    } catch (error: any) {
+      console.error('Error adding family member:', error);
+      if (error.message.includes('not found')) {
+        res.status(404).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Server error adding family member.' });
+      }
+    }
+  };
+
+  recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
     const { phoneNumber } = req.body;
 
     if (!phoneNumber) {
-      res.status(400).json({ error: 'Phone number is required to record a returning guest visit.' });
+      res.status(400).json({ error: 'Phone number is required.' });
       return;
     }
 
@@ -72,10 +132,10 @@ export class PatientController {
       res.status(200).json(result);
     } catch (error: any) {
       console.error('Error recording returning guest visit:', error);
-      if (error.message.includes('Patient with this phone number not found')) {
+      if (error.message.includes('not found')) {
         res.status(404).json({ error: error.message });
       } else {
-        res.status(500).json({ error: 'Server error during returning guest visit recording.' });
+        res.status(500).json({ error: 'Server error during visit recording.' });
       }
     }
   };
@@ -84,10 +144,22 @@ export class PatientController {
     try {
       const allPatients = await patientService.getAllPatients();
 
-      // If the user is a 'nurse', filter out phone numbers and emails
       if (req.user?.role === 'nurse') {
         const filteredPatients = allPatients.map(patient => {
-          const { phoneNumber, email, ...safePatient } = patient;
+          const { phoneNumber, email, ...safePatientData } = patient;
+          const safePatient: any = { ...safePatientData };
+
+          if (safePatient.familyHead) {
+            const { phoneNumber: headPhone, email: headEmail, ...safeHead } = safePatient.familyHead;
+            safePatient.familyHead = safeHead;
+          }
+
+          if (safePatient.familyMembers) {
+            safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
+              const { phoneNumber: memberPhone, email: memberEmail, ...safeMember } = member;
+              return safeMember;
+            });
+          }
           return safePatient;
         });
         res.json(filteredPatients);
@@ -114,10 +186,21 @@ export class PatientController {
         res.status(404).json({ error: 'Patient not found.' });
         return;
       }
-
-      // If the user is a 'nurse', filter out phone number and email
+      
       if (req.user?.role === 'nurse') {
-        const { phoneNumber, email, ...safePatient } = patient;
+        const { phoneNumber, email, ...safePatientData } = patient;
+        const safePatient: any = { ...safePatientData };
+
+        if (safePatient.familyHead) {
+          const { phoneNumber: headPhone, email: headEmail, ...safeHead } = safePatient.familyHead;
+          safePatient.familyHead = safeHead;
+        }
+        if (safePatient.familyMembers) {
+          safePatient.familyMembers = safePatient.familyMembers.map((member: any) => {
+            const { phoneNumber: memberPhone, email: memberEmail, ...safeMember } = member;
+            return safeMember;
+          });
+        }
         res.json(safePatient);
       } else {
         res.json(patient);
@@ -130,20 +213,19 @@ export class PatientController {
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    // UPDATED: Include hmo in destructuring
     const { name, sex, dateOfBirth, phoneNumber, email, hmo } = req.body;
 
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
     }
-    if (!name || !sex || !phoneNumber) {
-      res.status(400).json({ error: 'Name, sex, and phone number are required.' });
+    if (!name || !sex) {
+      res.status(400).json({ error: 'Name and sex are required.' });
       return;
     }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ error: 'Invalid email address format.' });
-      return;
+        res.status(400).json({ error: 'Invalid email address format.' });
+        return;
     }
 
     try {
@@ -153,8 +235,10 @@ export class PatientController {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         phoneNumber,
         email,
-        hmo, // NEW: Include hmo in update data
+        hmo,
       };
+
+      Object.keys(updateData).forEach(key => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]);
 
       const result = await patientService.updatePatient(patientId, updateData);
 
@@ -166,56 +250,22 @@ export class PatientController {
 
     } catch (error: any) {
       console.error('Error in updatePatient controller:', error);
-      // Catch specific Drizzle/DB errors here if needed
-      if (error.code === 'ER_DUP_ENTRY') {
-        res.status(409).json({ error: 'A patient with this phone number or email already exists.' });
-        return;
-      }
       res.status(500).json({ error: 'Server error updating patient information.' });
     }
   }
 
-  // DENTAL RECORD MANAGEMENT (No changes needed, nurses can manage dental records)
+  // --- DENTAL RECORD MANAGEMENT ---
 
   createDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.patientId);
-    const doctorId = req.user!.userId; // Guaranteed by authenticateToken
+    const doctorId = req.user!.userId;
 
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
     }
 
-    const recordData: Partial<InferInsertModel<typeof dentalRecords>> = {
-      complaint: req.body.complaint || null,
-      historyOfPresentComplaint: req.body.historyOfPresentComplaint || null,
-      pastDentalHistory: req.body.pastDentalHistory || null,
-      medicationS: req.body.medicationS || null,
-      medicationH: req.body.medicationH || null,
-      medicationA: req.body.medicationA || null,
-      medicationD: req.body.medicationD || null,
-      medicationE: req.body.medicationE || null,
-      medicationPUD: req.body.medicationPUD || null,
-      medicationBloodDisorder: req.body.medicationBloodDisorder || null,
-      medicationAllergy: req.body.medicationAllergy || null,
-      familySocialHistory: req.body.familySocialHistory || null,
-      extraOralExamination: req.body.extraOralExamination || null,
-      intraOralExamination: req.body.intraOralExamination || null,
-      teethPresent: req.body.teethPresent || null,
-      cariousCavity: req.body.cariousCavity || null,
-      filledTeeth: req.body.filledTeeth || null,
-      missingTeeth: req.body.missingTeeth || null,
-      fracturedTeeth: req.body.fracturedTeeth || null,
-      periodontalCondition: req.body.periodontalCondition || null,
-      oralHygiene: req.body.oralHygiene || null,
-      investigations: req.body.investigations || null,
-      xrayFindings: req.body.xrayFindings || null,
-      provisionalDiagnosis: req.body.provisionalDiagnosis || null,
-      treatmentPlan: req.body.treatmentPlan || null,
-      // NEW: Include treatmentDone from req.body
-      treatmentDone: req.body.treatmentDone || null,
-      calculus: req.body.calculus || null,
-    };
+    const recordData: Partial<InferInsertModel<typeof dentalRecords>> = req.body;
 
     try {
       const result = await patientService.createDentalRecord(patientId, doctorId, recordData);
@@ -301,24 +351,7 @@ export class PatientController {
     }
 
     try {
-      const updateData: Partial<InferInsertModel<typeof dentalRecords>> = {};
-      const allowedFields: (keyof InferInsertModel<typeof dentalRecords>)[] = [
-        'complaint', 'historyOfPresentComplaint', 'pastDentalHistory',
-        'medicationS', 'medicationH', 'medicationA', 'medicationD', 'medicationE',
-        'medicationPUD', 'medicationBloodDisorder', 'medicationAllergy',
-        'familySocialHistory', 'extraOralExamination', 'intraOralExamination',
-        'teethPresent', 'cariousCavity', 'filledTeeth', 'missingTeeth',
-        'fracturedTeeth', 'periodontalCondition', 'oralHygiene',
-        'investigations', 'xrayFindings', 'provisionalDiagnosis', 'treatmentPlan', 'calculus',
-        'treatmentDone' // NEW: Include treatmentDone in allowed fields for update
-      ];
-
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          updateData[field] = req.body[field];
-        }
-      }
-
+      const updateData: Partial<InferInsertModel<typeof dentalRecords>> = req.body;
       const result = await patientService.updateDentalRecord(recordId, updateData);
 
       if (!result.success) {

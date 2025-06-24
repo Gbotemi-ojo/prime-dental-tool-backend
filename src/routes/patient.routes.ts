@@ -1,48 +1,66 @@
-// src/routes/patient.routes.ts
 import { Router } from 'express';
 import { patientController } from '../controllers/patient.controller';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
 const router = Router();
 
-// PATIENT MANAGEMENT ROUTES
+// --- PATIENT & FAMILY MANAGEMENT ROUTES ---
+
+// POST /guest-submit - Create a new primary patient (now a Family Head). Publicly accessible.
 router.post('/guest-submit', patientController.submitGuestPatient);
 
-// NEW ROUTE: Record a visit for a returning guest (logs to Google Sheets)
-// This route remains public as per previous discussion
+// NEW ROUTE: POST /guest-family-submit - Create a new family unit (Head + Members) at once. Publicly accessible.
+router.post('/guest-family-submit', patientController.submitGuestFamilyPatient);
+
+// POST /returning-guest-visit - Record a visit for a returning guest. Publicly accessible.
 router.post('/returning-guest-visit', patientController.recordReturningGuestVisit);
 
-// GET /api/patients - Get all patients
-// Nurses can see all patients (but filtered data in controller)
-router.get('/', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getAllPatients); // Added 'doctor'
+// ADD MEMBER ROUTE: Add a family member to an existing patient (the Family Head).
+// This requires authentication and specific user roles.
+router.post(
+    '/:headId/members',
+    authenticateToken,
+    authorizeRoles(['owner', 'staff', 'doctor']),
+    patientController.addFamilyMember
+);
 
-// GET /api/patients/:id - Get a single patient by ID
-// Nurses can see single patient details (but filtered data in controller)
-router.get('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getPatientById); // Added 'doctor'
+// GET / - Get all patients.
+// Nurses can see all patients (data is filtered in the controller).
+router.get('/', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getAllPatients);
 
-// PUT /api/patients/:id - Update patient information
-// Nurses should NOT be able to update patient info
-router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'doctor']), patientController.updatePatient); // Added 'doctor'
+// GET /:id - Get a single patient by ID.
+// Nurses can see single patient details (data is filtered in the controller).
+router.get('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getPatientById);
 
-// DENTAL RECORD MANAGEMENT ROUTES
-// Nurses CAN create, view, update, and delete dental records
+// PUT /:id - Update patient information.
+// Nurses cannot update general patient info.
+router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'doctor']), patientController.updatePatient);
 
-// POST /api/patients/:patientId/dental-records - Create a new dental record for a patient
-router.post('/:patientId/dental-records', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.createDentalRecord); // Added 'doctor'
 
-// GET /api/patients/:patientId/dental-records - Get all dental records for a specific patient
-router.get('/:patientId/dental-records', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getDentalRecordsByPatientId); // Added 'doctor'
+// --- DENTAL RECORD MANAGEMENT ROUTES ---
+// These routes do not require changes. They function correctly for any patient (head or member) using their unique ID.
+// Nurses have full access to manage dental records.
 
-// GET /api/patients/:patientId/dental-records/:recordId - Get a specific dental record for a patient
-router.get('/:patientId/dental-records/:recordId', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getSpecificDentalRecordForPatient); // Added 'doctor'
+// POST /:patientId/dental-records - Create a new dental record for a patient.
+router.post('/:patientId/dental-records', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.createDentalRecord);
 
-// GET /api/dental-records/:id - Get a single dental record by its ID (global access)
-router.get('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getDentalRecordById); // Added 'doctor'
+// GET /:patientId/dental-records - Get all dental records for a specific patient.
+router.get('/:patientId/dental-records', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getDentalRecordsByPatientId);
 
-// PUT /api/dental-records/:id - Update a dental record
-router.put('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.updateDentalRecord); // Added 'doctor'
+// GET /:patientId/dental-records/:recordId - Get a specific dental record for a patient.
+router.get('/:patientId/dental-records/:recordId', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getSpecificDentalRecordForPatient);
 
-// DELETE /api/dental-records/:id - Delete a dental record
-router.delete('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.deleteDentalRecord); // Added 'doctor'
+// NOTE: The following routes are prefixed by the patient router's base path (e.g., /api/patients).
+// So, '/dental-records/:id' actually maps to '/api/patients/dental-records/:id'.
+// This is kept as-is to avoid breaking changes, but you might consider moving them to a dedicated dental-record router in the future.
+
+// GET /dental-records/:id - Get a single dental record by its own ID.
+router.get('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getDentalRecordById);
+
+// PUT /dental-records/:id - Update a dental record by its own ID.
+router.put('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.updateDentalRecord);
+
+// DELETE /dental-records/:id - Delete a dental record by its own ID.
+router.delete('/dental-records/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.deleteDentalRecord);
 
 export default router;

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "19d002b6-8831-46d4-941f-446d8b518577",
+  "id": "d9d6fb54-477c-4062-ac8b-56c1ad7a14a9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -516,6 +516,21 @@
           "notNull": true,
           "autoincrement": true
         },
+        "family_id": {
+          "name": "family_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_family_head": {
+          "name": "is_family_head",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "name": {
           "name": "name",
           "type": "varchar(255)",
@@ -541,7 +556,7 @@
           "name": "phone_number",
           "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "email": {
@@ -577,7 +592,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "patients_family_id_patients_id_fk": {
+          "name": "patients_family_id_patients_id_fk",
+          "tableFrom": "patients",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "patients_id": {
           "name": "patients_id",
