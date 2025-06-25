@@ -234,6 +234,53 @@ export class PatientService {
         return { success: true, message: 'Patient information updated successfully.' };
     }
 
+    /**
+     * Schedules the next appointment for a given patient.
+     * @param patientId The ID of the patient.
+     * @param interval The interval string (e.g., '1 day', '2 weeks').
+     * @returns An object with the success status and the updated patient data.
+     */
+    async scheduleNextAppointment(patientId: number, interval: string) {
+        const [patientExists] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
+        if (!patientExists) {
+            return { success: false, message: 'Patient not found.' };
+        }
+    
+        const today = new Date();
+        let nextAppointmentDate = new Date(today);
+        
+        // Sanitize interval string for easier matching
+        const cleanInterval = interval.toLowerCase().replace(/\s+/g, '');
+    
+        switch (cleanInterval) {
+            case '1day': nextAppointmentDate.setDate(today.getDate() + 1); break;
+            case '2days': nextAppointmentDate.setDate(today.getDate() + 2); break;
+            case '3days': nextAppointmentDate.setDate(today.getDate() + 3); break;
+            case '1week': nextAppointmentDate.setDate(today.getDate() + 7); break;
+            case '2weeks': nextAppointmentDate.setDate(today.getDate() + 14); break;
+            case '1month': nextAppointmentDate.setMonth(today.getMonth() + 1); break;
+            case '6weeks': nextAppointmentDate.setDate(today.getDate() + 42); break;
+            case '3months': nextAppointmentDate.setMonth(today.getMonth() + 3); break;
+            case '6months': nextAppointmentDate.setMonth(today.getMonth() + 6); break;
+            default:
+                return { success: false, message: 'Invalid appointment interval provided.' };
+        }
+    
+        // If the calculated date is a Sunday (getDay() returns 0), push it to the next day (Monday).
+        if (nextAppointmentDate.getDay() === 0) {
+            nextAppointmentDate.setDate(nextAppointmentDate.getDate() + 1);
+        }
+    
+        await db.update(patients).set({
+            nextAppointmentDate: nextAppointmentDate,
+            updatedAt: new Date(),
+        }).where(eq(patients.id, patientId));
+    
+        const updatedPatient = await this.getPatientById(patientId);
+    
+        return { success: true, message: 'Next appointment scheduled successfully.', patient: updatedPatient };
+    }
+
     async createDentalRecord(patientId: number, doctorId: number, recordData: Partial<DentalRecordInsert>) {
         const [patientExists] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
         if (!patientExists) {

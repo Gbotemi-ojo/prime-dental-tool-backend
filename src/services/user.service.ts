@@ -62,7 +62,7 @@ export class UserService {
   // UPDATED: Now includes 'nurse' role in the staff accounts list
   async getStaffAccounts() {
     // Modified the 'where' clause to use inArray for multiple roles
-    const staffAccounts = await db.select().from(users).where(inArray(users.role, ['staff', 'nurse']));
+    const staffAccounts = await db.select().from(users).where(inArray(users.role, ['staff', 'nurse','doctor']));
     return staffAccounts.map(({ passwordHash, ...user }) => user);
   }
 

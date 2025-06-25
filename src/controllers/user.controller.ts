@@ -23,7 +23,7 @@ export class UserController {
       return;
     }
 
-    if (!['staff', 'nurse'].includes(role)) {
+    if (!['staff', 'nurse','doctor'].includes(role)) {
       res.status(400).json({ error: 'Invalid role specified. Allowed roles: staff, nurse.' });
       return;
     }

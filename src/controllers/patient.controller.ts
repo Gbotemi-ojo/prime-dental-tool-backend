@@ -254,6 +254,40 @@ export class PatientController {
     }
   }
 
+  // --- APPOINTMENT SCHEDULING ---
+
+  scheduleNextAppointment = async (req: Request, res: Response): Promise<void> => {
+    const patientId = parseInt(req.params.patientId, 10);
+    const { interval } = req.body; // e.g., "1 week"
+
+    if (isNaN(patientId)) {
+      res.status(400).json({ error: 'Invalid patient ID.' });
+      return;
+    }
+
+    if (!interval || typeof interval !== 'string') {
+      res.status(400).json({ error: 'An interval string must be provided.' });
+      return;
+    }
+
+    try {
+      const result = await patientService.scheduleNextAppointment(patientId, interval);
+
+      if (!result.success) {
+        // Handle specific errors from the service layer
+        const statusCode = result.message.includes('not found') ? 404 : 400;
+        res.status(statusCode).json({ error: result.message });
+        return;
+      }
+      
+      res.status(200).json({ message: result.message, patient: result.patient });
+
+    } catch (error) {
+      console.error('Error in scheduleNextAppointment controller:', error);
+      res.status(500).json({ error: 'Server error scheduling next appointment.' });
+    }
+  }
+
   // --- DENTAL RECORD MANAGEMENT ---
 
   createDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {

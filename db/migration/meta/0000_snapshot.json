@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "d9d6fb54-477c-4062-ac8b-56c1ad7a14a9",
+  "id": "bf49fb2f-24ef-4cd4-9a7e-d67ec9244b13",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -569,6 +569,13 @@
         "hmo": {
           "name": "hmo",
           "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_appointment_date": {
+          "name": "next_appointment_date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

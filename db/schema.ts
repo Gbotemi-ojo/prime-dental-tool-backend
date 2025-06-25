@@ -5,12 +5,12 @@ import { relations } from 'drizzle-orm';
 // Updated to support family hierarchies.
 export const patients = mysqlTable("patients", {
     id: serial("id").primaryKey(),
-    
+
     // --- NEW FIELDS FOR FAMILY STRUCTURE ---
     // A patient can be part of a family, linked by familyId.
     // The head of the family will have this field as NULL.
     familyId: int("family_id").references((): any => patients.id, { onDelete: 'set null' }),
-    
+
     // Explicitly flag if a patient is the primary account holder for a family.
     isFamilyHead: boolean("is_family_head").default(false).notNull(),
 
@@ -27,6 +27,9 @@ export const patients = mysqlTable("patients", {
 
     // HMO is stored on the primary patient and inherited by family members.
     hmo: json("hmo"), // e.g., { name: "HMO Name", status: "ONBOARD" }
+
+    // --- NEW FIELD for Next Appointment ---
+    nextAppointmentDate: timestamp("next_appointment_date", { mode: 'date' }),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

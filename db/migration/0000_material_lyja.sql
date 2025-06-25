@@ -74,6 +74,7 @@ CREATE TABLE `patients` (
 	`phone_number` varchar(20),
 	`email` varchar(255),
 	`hmo` json,
+	`next_appointment_date` timestamp,
 	`created_at` timestamp NOT NULL DEFAULT (now()),
 	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `patients_id` PRIMARY KEY(`id`),

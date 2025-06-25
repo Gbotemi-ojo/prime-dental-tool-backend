@@ -36,6 +36,14 @@ router.get('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse',
 // Nurses cannot update general patient info.
 router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'doctor']), patientController.updatePatient);
 
+// --- APPOINTMENT SCHEDULING ROUTE ---
+// NEW ROUTE: POST /:patientId/schedule-appointment - Schedule the next appointment for a patient.
+router.post(
+    '/:patientId/schedule-appointment',
+    authenticateToken,
+    authorizeRoles(['owner', 'staff', 'doctor']),
+    patientController.scheduleNextAppointment
+);
 
 // --- DENTAL RECORD MANAGEMENT ROUTES ---
 // These routes do not require changes. They function correctly for any patient (head or member) using their unique ID.
