@@ -37,7 +37,7 @@ export class PatientService {
     /**
      * Adds a new patient who will be the head of their family.
      */
-    async addGuestPatient(patientData: NewFamilyHeadData) {
+    async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true) {
         const { name, sex, dateOfBirth, phoneNumber, email, hmo } = patientData;
 
         const existingPatient = await db.select()
@@ -69,6 +69,37 @@ export class PatientService {
         }
 
         this._sendNewPatientNotifications(newPatient);
+
+        if (sendReceipt && newPatient.email) {
+            try {
+                const receiptData = {
+                    receiptNumber: `REG-${newPatient.id}-${Date.now()}`,
+                    receiptDate: new Date().toLocaleDateString(),
+                    patientName: newPatient.name,
+                    patientEmail: newPatient.email,
+                    items: [{
+                        description: 'Registration & Consultation',
+                        quantity: 1,
+                        unitPrice: 5000,
+                        totalPrice: 5000
+                    }],
+                    subtotal: 5000,
+                    amountPaid: 5000,
+                    totalDueFromPatient: 5000,
+                    paymentMethod: 'New Registration Fee',
+                    isHmoCovered: false,
+                    hmoName: 'N/A',
+                    coveredAmount: 0,
+                    latestDentalRecord: null
+                };
+                const senderUserId = 1; // Assuming 1 is a default/system user ID
+                await emailService.sendReceiptEmail(newPatient.email, receiptData, senderUserId);
+                console.log(`Registration receipt sent to ${newPatient.email}`);
+            } catch (emailError: any) {
+                console.error(`Error sending registration receipt email: ${emailError.message}`);
+            }
+        }
+
         return newPatient;
     }
 
@@ -124,7 +155,7 @@ export class PatientService {
 
         // 1. Create the Family Head using the existing logic.
         // This handles phone number validation and notifications for the primary account.
-        const familyHead = await this.addGuestPatient(headData);
+        const familyHead = await this.addGuestPatient(headData, false);
 
         // 2. Add each family member.
         if (members && members.length > 0) {
@@ -132,6 +163,36 @@ export class PatientService {
                 // Use the existing `addFamilyMember` logic for each sub-patient.
                 // This ensures consistency in how members are created and inherits the HMO.
                 await this.addFamilyMember(familyHead.id, memberData);
+            }
+        }
+
+        if (familyHead.email) {
+            try {
+                const receiptData = {
+                    receiptNumber: `REG-FAM-${familyHead.id}-${Date.now()}`,
+                    receiptDate: new Date().toLocaleDateString(),
+                    patientName: familyHead.name,
+                    patientEmail: familyHead.email,
+                    items: [{
+                        description: 'Registration & Consultation(Family)',
+                        quantity: 1,
+                        unitPrice: 10000,
+                        totalPrice: 10000
+                    }],
+                    subtotal: 10000,
+                    amountPaid: 10000,
+                    totalDueFromPatient: 10000,
+                    paymentMethod: 'New Registration Fee',
+                    isHmoCovered: false,
+                    hmoName: 'N/A',
+                    coveredAmount: 0,
+                    latestDentalRecord: null
+                };
+                const senderUserId = 1; // Assuming 1 is a default/system user ID
+                await emailService.sendReceiptEmail(familyHead.email, receiptData, senderUserId);
+                console.log(`Family registration receipt sent to ${familyHead.email}`);
+            } catch (emailError: any) {
+                console.error(`Error sending family registration receipt email: ${emailError.message}`);
             }
         }
 
@@ -169,12 +230,28 @@ export class PatientService {
      * Fetches all patients and includes their family relations.
      */
     async getAllPatients() {
-        return await db.query.patients.findMany({
+        // Fetch all patients with their dental records
+        const allPatients = await db.query.patients.findMany({
             with: {
                 familyHead: true,
                 familyMembers: true,
+                dentalRecords: {
+                    orderBy: [desc(dentalRecords.createdAt)],
+                    limit: 1 // Only get the latest record for the list view
+                }
             },
             orderBy: [desc(patients.createdAt)],
+        });
+    
+        // Augment patient objects with the latest dental record details
+        return allPatients.map(p => {
+            const latestRecord = p.dentalRecords && p.dentalRecords.length > 0 ? p.dentalRecords[0] : null;
+            return {
+                ...p,
+                latestTreatmentDone: latestRecord?.treatmentDone,
+                latestTreatmentPlan: latestRecord?.treatmentPlan,
+                latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis
+            };
         });
     }
 
@@ -191,7 +268,9 @@ export class PatientService {
                         dentalRecords: true,
                     }
                 },
-                dentalRecords: true,
+                dentalRecords: {
+                     orderBy: [desc(dentalRecords.createdAt)],
+                },
             },
         });
     }
@@ -279,6 +358,40 @@ export class PatientService {
         const updatedPatient = await this.getPatientById(patientId);
     
         return { success: true, message: 'Next appointment scheduled successfully.', patient: updatedPatient };
+    }
+
+    /**
+     * NEW: Sends an appointment reminder email to a patient.
+     */
+    async sendAppointmentReminder(patientId: number) {
+        const patient = await this.getPatientById(patientId);
+
+        if (!patient) {
+            return { success: false, message: "Patient not found." };
+        }
+
+        if (!patient.email) {
+            return { success: false, message: "Patient does not have an email address." };
+        }
+        
+        if (!patient.nextAppointmentDate) {
+            return { success: false, message: "Patient does not have a next appointment date." };
+        }
+
+        try {
+            const reminderData = {
+                patientName: patient.name,
+                appointmentDate: patient.nextAppointmentDate.toISOString(),
+                outstandingAmount: patient.outstanding || '0.00',
+            };
+            
+            await emailService.sendAppointmentReminder(patient.email, reminderData);
+            return { success: true, message: `Reminder sent to ${patient.name}.` };
+
+        } catch (error: any) {
+            console.error(`Error sending appointment reminder: ${error.message}`);
+            return { success: false, message: `Failed to send reminder. ${error.message}` };
+        }
     }
 
     async createDentalRecord(patientId: number, doctorId: number, recordData: Partial<DentalRecordInsert>) {

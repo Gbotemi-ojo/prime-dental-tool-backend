@@ -15,13 +15,11 @@ export class ReceiptController {
   constructor() {}
 
   sendReceipt = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // The frontend sends a `body` with `patientEmail`, `receiptData`, and `senderUserId`.
-    // We need to destructure `receiptData` from req.body directly.
-    const { patientEmail, receiptData, senderUserId } = req.body;
+    const { receiptData, senderUserId } = req.body;
 
-    // Validate essential fields from the receiptData object received from frontend
-    if (!receiptData || !receiptData.patientId || !receiptData.receiptNumber || !receiptData.receiptDate || receiptData.amountPaid === undefined || !receiptData.paymentMethod) {
-      res.status(400).json({ error: 'Receipt data (patient ID, receipt number, date, amount paid, and payment method) are required.' });
+    // Updated validation to include totalDueFromPatient
+    if (!receiptData || !receiptData.patientId || !receiptData.receiptNumber || !receiptData.receiptDate || receiptData.amountPaid === undefined || receiptData.totalDueFromPatient === undefined || !receiptData.paymentMethod) {
+      res.status(400).json({ error: 'Receipt data (patient ID, receipt number, date, amount paid, total due, and payment method) are required.' });
       return;
     }
 
@@ -43,9 +41,27 @@ export class ReceiptController {
         return;
       }
 
-      // Now, pass the *entire* receiptData object (which contains all details)
-      // to the emailService, along with the correct patient email.
-      const emailResult = await emailService.sendReceiptEmail(targetEmail, receiptData, senderUserId);
+      // --- Outstanding Balance Calculation ---
+      const amountPaidNow = parseFloat(receiptData.amountPaid || 0);
+      const totalDueForTx = parseFloat(receiptData.totalDueFromPatient || 0);
+      const outstandingFromTx = totalDueForTx - amountPaidNow;
+
+      let finalOutstanding = parseFloat(patient.outstanding as string || '0');
+
+      // Only update the patient's record if a new debt is incurred in this transaction
+      if (outstandingFromTx > 0) {
+        finalOutstanding += outstandingFromTx;
+        // The `updatePatient` service is sufficient, no new service needed.
+        await patientService.updatePatient(patient.id, { outstanding: finalOutstanding.toFixed(2) });
+      }
+
+      // Prepare a complete payload for the email template, including the final outstanding balance.
+      const emailPayload = {
+        ...receiptData,
+        outstanding: finalOutstanding.toFixed(2)
+      };
+
+      const emailResult = await emailService.sendReceiptEmail(targetEmail, emailPayload, senderUserId);
 
       if (emailResult.success) {
         res.status(200).json({ message: 'Receipt sent successfully!', messageId: emailResult.messageId });

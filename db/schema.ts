@@ -2,7 +2,7 @@ import { serial, int, varchar, text, boolean, timestamp, json, mysqlTable, decim
 import { relations } from 'drizzle-orm';
 
 // --- MODIFIED PATIENTS SCHEMA ---
-// Updated to support family hierarchies.
+// Updated to support family hierarchies and outstanding balances.
 export const patients = mysqlTable("patients", {
     id: serial("id").primaryKey(),
 
@@ -30,6 +30,9 @@ export const patients = mysqlTable("patients", {
 
     // --- NEW FIELD for Next Appointment ---
     nextAppointmentDate: timestamp("next_appointment_date", { mode: 'date' }),
+
+    // --- NEW FIELD for Outstanding Balance ---
+    outstanding: decimal("outstanding", { precision: 10, scale: 2 }).default('0.00').notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

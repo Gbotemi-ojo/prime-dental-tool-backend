@@ -105,16 +105,14 @@
             font-weight: 700;
             color: #28a745; /* Green for amount paid/due */
             margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px dashed #ced4da;
         }
         .hmo-status {
             font-weight: bold;
             padding: 8px 15px;
             border-radius: 8px; /* More rounded */
             display: inline-block;
-            margin-top: 15px;
-            font-size: 1.1em;
+            margin-top: 10px;
+            font-size: 1.0em;
             text-align: center;
         }
         .hmo-fully-covered {
@@ -126,6 +124,17 @@
             background-color: #fff3cd; /* Light yellow */
             color: #856404; /* Dark yellow */
             border: 1px solid #ffc107;
+        }
+
+        .outstanding-balance {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #D32F2F; /* A shade of red */
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #FFEBEE; /* Light red background */
+            border: 1px solid #D32F2F;
+            border-radius: 8px;
         }
 
         .notes-section {
@@ -227,7 +236,6 @@
             {{#if isHmoCovered}}
             <div>
                 <p><strong>HMO Provider:</strong> {{hmoName}}</p>
-                <!-- HMO Covered amount removed as per user request to only show patient's balance -->
             </div>
             {{/if}}
         </div>
@@ -261,12 +269,18 @@
             <p><strong>Payment Method:</strong> {{paymentMethod}}</p>
             {{#if isHmoCovered}}
                 {{#if totalDueFromPatient}}
-                <p class="hmo-status hmo-balance-due">HMO Partially Covered: Balance Due From Patient: ₦{{totalDueFromPatient}}</p>
+                    <p class="hmo-status hmo-balance-due">HMO Partially Covered: Amount due from patient for this visit is ₦{{totalDueFromPatient}}</p>
+                    <p class="total-due">Amount Paid Now: ₦{{amountPaid}}</p>
                 {{else}}
-                <p class="hmo-status hmo-fully-covered">Status: Fully Covered by HMO</p>
+                    <p class="hmo-status hmo-fully-covered">Status: Fully Covered by HMO</p>
                 {{/if}}
             {{else}}
-                <p class="total-due">Total Amount Paid by Patient: ₦{{amountPaid}}</p>
+                <p><strong>Total for this Visit:</strong> ₦{{totalDueFromPatient}}</p>
+                <p class="total-due">Amount Paid Now: ₦{{amountPaid}}</p>
+            {{/if}}
+
+            {{#if outstanding}}
+                <p class="outstanding-balance">Total Outstanding Balance: ₦{{outstanding}}</p>
             {{/if}}
         </div>
 

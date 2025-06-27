@@ -254,7 +254,7 @@ export class PatientController {
     }
   }
 
-  // --- APPOINTMENT SCHEDULING ---
+  // --- APPOINTMENT SCHEDULING & REMINDERS ---
 
   scheduleNextAppointment = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.patientId, 10);
@@ -287,6 +287,35 @@ export class PatientController {
       res.status(500).json({ error: 'Server error scheduling next appointment.' });
     }
   }
+
+  /**
+   * NEW: Controller to send an appointment reminder.
+   */
+  sendAppointmentReminder = async (req: Request, res: Response): Promise<void> => {
+    const patientId = parseInt(req.params.patientId, 10);
+
+    if (isNaN(patientId)) {
+        res.status(400).json({ error: 'Invalid patient ID.' });
+        return;
+    }
+
+    try {
+        const result = await patientService.sendAppointmentReminder(patientId);
+
+        if (!result.success) {
+            const statusCode = result.message.includes('not found') ? 404 : 400;
+            res.status(statusCode).json({ error: result.message });
+            return;
+        }
+
+        res.status(200).json({ message: result.message });
+
+    } catch (error) {
+        console.error('Error in sendAppointmentReminder controller:', error);
+        res.status(500).json({ error: 'Server error sending reminder.' });
+    }
+  };
+
 
   // --- DENTAL RECORD MANAGEMENT ---
 

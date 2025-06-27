@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "bf49fb2f-24ef-4cd4-9a7e-d67ec9244b13",
+  "id": "e865c42d-a2b2-492d-be34-bc7cc125a0a7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -579,6 +579,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "outstanding": {
+          "name": "outstanding",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'0.00'"
         },
         "created_at": {
           "name": "created_at",

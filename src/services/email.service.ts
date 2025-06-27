@@ -122,6 +122,33 @@ export class EmailService {
     }
 
     /**
+     * NEW: Sends an appointment reminder email.
+     * @param patientEmail The patient's email address.
+     * @param reminderData Data for the reminder template.
+     * @returns The result of the email sending operation.
+     */
+    async sendAppointmentReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; outstandingAmount?: string; }) {
+        const template = await this.compileTemplate('reminder.html');
+        const subject = `Appointment Reminder for ${reminderData.appointmentDate}`;
+
+        const outstandingValue = parseFloat(reminderData.outstandingAmount || '0');
+
+        const templateData = {
+            patientName: reminderData.patientName,
+            appointmentDate: new Date(reminderData.appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            hasOutstanding: outstandingValue > 0,
+            outstandingAmount: outstandingValue.toFixed(2),
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com',
+            currentYear: new Date().getFullYear(),
+        };
+
+        const htmlContent = template(templateData);
+
+        return await this.sendEmail(patientEmail, subject, htmlContent);
+    }
+
+
+    /**
      * Generates and sends an invoice email based on a template.
      * @param patientEmail The patient's email address.
      * @param invoiceData Data to populate the invoice template (e.g., invoiceNumber, invoiceDate, items, totalAmount).
@@ -217,6 +244,8 @@ export class EmailService {
             totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0).toFixed(2), // Balance they owed from frontend (number for template)
             paymentMethod: receiptData.paymentMethod || 'N/A',
             latestDentalRecord: receiptData.latestDentalRecord || null,
+            // Add outstanding field. Pass it to the template if it's a positive value.
+            outstanding: parseFloat(receiptData.outstanding || 0) > 0 ? parseFloat(receiptData.outstanding || 0).toFixed(2) : null,
         };
 
         const htmlContent = template(templateData); // Render the template with data
