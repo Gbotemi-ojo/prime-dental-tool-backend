@@ -1,8 +1,7 @@
-// src/controllers/receipt.controller.ts
 import { Request, Response } from 'express';
 import { emailService } from '../services/email.service';
 import { patientService } from '../services/patient.service';
-import { googleSheetsService } from '../services/googleSheets.service'; // Import GoogleSheetsService
+import { googleSheetsService } from '../services/googleSheets.service';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -17,7 +16,6 @@ export class ReceiptController {
   sendReceipt = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { receiptData, senderUserId } = req.body;
 
-    // Updated validation to include totalDueFromPatient
     if (!receiptData || !receiptData.patientId || !receiptData.receiptNumber || !receiptData.receiptDate || receiptData.amountPaid === undefined || receiptData.totalDueFromPatient === undefined || !receiptData.paymentMethod) {
       res.status(400).json({ error: 'Receipt data (patient ID, receipt number, date, amount paid, total due, and payment method) are required.' });
       return;
@@ -41,24 +39,19 @@ export class ReceiptController {
         return;
       }
 
-      // --- Outstanding Balance Calculation ---
       const amountPaidNow = parseFloat(receiptData.amountPaid || 0);
       const totalDueForTx = parseFloat(receiptData.totalDueFromPatient || 0);
-      const outstandingFromTx = totalDueForTx - amountPaidNow;
+      const previousOutstanding = parseFloat(patient.outstanding as string || '0');
+      const balanceChangeFromTx = totalDueForTx - amountPaidNow;
+      const newFinalOutstanding = previousOutstanding + balanceChangeFromTx;
 
-      let finalOutstanding = parseFloat(patient.outstanding as string || '0');
+      await patientService.updatePatient(patient.id, { outstanding: newFinalOutstanding.toFixed(2) });
 
-      // Only update the patient's record if a new debt is incurred in this transaction
-      if (outstandingFromTx > 0) {
-        finalOutstanding += outstandingFromTx;
-        // The `updatePatient` service is sufficient, no new service needed.
-        await patientService.updatePatient(patient.id, { outstanding: finalOutstanding.toFixed(2) });
-      }
-
-      // Prepare a complete payload for the email template, including the final outstanding balance.
+      // MODIFICATION: The payload now includes the definitive new outstanding balance calculated above.
+      // This ensures the email template receives the exact same value that was saved to the database.
       const emailPayload = {
         ...receiptData,
-        outstanding: finalOutstanding.toFixed(2)
+        outstanding: newFinalOutstanding.toFixed(2)
       };
 
       const emailResult = await emailService.sendReceiptEmail(targetEmail, emailPayload, senderUserId);
@@ -82,9 +75,6 @@ export class ReceiptController {
   getRevenueReport = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const allReceiptsData = await googleSheetsService.getReceiptsData();
-
-      // The first row of allReceiptsData will be your headers.
-      // You can send them as is, or process them here if needed.
       res.status(200).json(allReceiptsData);
     } catch (error) {
       console.error('Error fetching revenue report from Google Sheets:', error);

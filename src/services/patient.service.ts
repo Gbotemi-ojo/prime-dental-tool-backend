@@ -534,7 +534,22 @@ export class PatientService {
 
             if (allRecipients.length > 0) {
                 const subject = 'New Patient Registration';
-                const htmlContent = `<h2>New Patient Registered!</h2><p>A new primary patient has been registered:</p><ul><li><strong>Name:</strong> ${newPatient.name}</li><li><strong>Phone:</strong> ${newPatient.phoneNumber}</li><li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li></ul>`;
+                const dobFormatted = newPatient.dateOfBirth ? new Date(newPatient.dateOfBirth).toLocaleDateString() : 'N/A';
+                const registrationDateFormatted = newPatient.createdAt ? new Date(newPatient.createdAt).toLocaleDateString() : 'N/A';
+                const hmoName = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : 'N/A';
+
+                const htmlContent = `
+                    <h2>New Patient Registered!</h2>
+                    <p>A new primary patient has been registered with the following details:</p>
+                    <ul>
+                        <li><strong>Name:</strong> ${newPatient.name}</li>
+                        <li><strong>Sex:</strong> ${newPatient.sex}</li>
+                        <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
+                        <li><strong>Phone Number:</strong> ${newPatient.phoneNumber}</li>
+                        <li><strong>Email:</strong> ${newPatient.email || 'N/A'}</li>
+                        <li><strong>HMO:</strong> ${hmoName}</li>
+                        <li><strong>Registration Date:</strong> ${registrationDateFormatted}</li>
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
@@ -566,7 +581,24 @@ export class PatientService {
             }
             if (allRecipients.length > 0) {
                 const subject = `Returning Patient Check-in: ${patient.name}`;
-                const htmlContent = `<h2>Returning Patient Checked In!</h2><p>${patient.name} has checked in on ${visitDate.toLocaleDateString()}.</p>`;
+                const dobFormatted = patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'N/A';
+                const registrationDateFormatted = patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : 'N/A';
+                const hmoName = patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : 'N/A';
+                const visitDateFormatted = visitDate.toLocaleDateString();
+
+                const htmlContent = `
+                    <h2>Returning Patient Checked In!</h2>
+                    <p><strong>${patient.name}</strong> has checked in on <strong>${visitDateFormatted}</strong>.</p>
+                    <p>Patient Details:</p>
+                    <ul>
+                        <li><strong>Name:</strong> ${patient.name}</li>
+                        <li><strong>Sex:</strong> ${patient.sex}</li>
+                        <li><strong>Date of Birth:</strong> ${dobFormatted}</li>
+                        <li><strong>Phone Number:</strong> ${patient.phoneNumber}</li>
+                        <li><strong>Email:</strong> ${patient.email || 'N/A'}</li>
+                        <li><strong>HMO:</strong> ${hmoName}</li>
+                        <li><strong>Initial Registration Date:</strong> ${registrationDateFormatted}</li>
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
