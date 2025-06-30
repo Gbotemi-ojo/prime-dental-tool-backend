@@ -17,10 +17,10 @@ router.get('/items/:id', authenticateToken, authorizeRoles(['owner', 'staff']), 
 router.post('/items', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.addItem);
 
 // PUT /api/inventory/items/:id - Update an inventory item by ID
-router.put('/items/:id', authenticateToken, authorizeRoles(['owner']), inventoryController.updateItem);
+router.put('/items/:id', authenticateToken, authorizeRoles(['owner,staff']), inventoryController.updateItem);
 
 // DELETE /api/inventory/items/:id - Delete an inventory item by ID
-router.delete('/items/:id', authenticateToken, authorizeRoles(['owner']), inventoryController.deleteItem);
+router.delete('/items/:id', authenticateToken, authorizeRoles(['owner,staff']), inventoryController.deleteItem);
 
 // GET /api/inventory/items/:id/current-stock - Get current stock level and status for an item
 router.get('/items/:id/current-stock', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getItemStockStatus);
@@ -31,7 +31,7 @@ router.get('/items/:id/current-stock', authenticateToken, authorizeRoles(['owner
 router.post('/transactions', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.recordTransaction);
 
 // GET /api/inventory/transactions - Get all inventory transactions
-router.get('/transactions', authenticateToken, authorizeRoles(['owner']), inventoryController.getAllTransactions);
+router.get('/transactions', authenticateToken, authorizeRoles(['owner','staff']), inventoryController.getAllTransactions);
 
 // GET /api/inventory/items/:itemId/transactions - Get transactions for a specific inventory item
 router.get('/items/:itemId/transactions', authenticateToken, authorizeRoles(['owner', 'staff']), inventoryController.getTransactionsByItemId);

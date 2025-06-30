@@ -34,7 +34,7 @@ router.get('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse',
 
 // PUT /:id - Update patient information.
 // Nurses cannot update general patient info.
-router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'doctor']), patientController.updatePatient);
+router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.updatePatient);
 
 
 // --- APPOINTMENT SCHEDULING & REMINDER ROUTES ---
@@ -42,7 +42,7 @@ router.put('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'doctor'
 router.post(
     '/:patientId/schedule-appointment',
     authenticateToken,
-    authorizeRoles(['owner', 'staff', 'doctor']),
+    authorizeRoles(['owner', 'staff', 'doctor','nurse']),
     patientController.scheduleNextAppointment
 );
 
@@ -50,7 +50,7 @@ router.post(
 router.post(
     '/:patientId/send-reminder',
     authenticateToken,
-    authorizeRoles(['owner', 'staff', 'doctor']),
+    authorizeRoles(['owner', 'staff', 'doctor','nurse']),
     patientController.sendAppointmentReminder
 );
 
