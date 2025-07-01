@@ -1,3 +1,4 @@
+// src/services/patient.service.ts
 import { eq, ne, and, desc, isNull } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users } from '../../db/schema';
@@ -72,31 +73,60 @@ export class PatientService {
 
         if (sendReceipt && newPatient.email) {
             try {
-                const receiptData = {
-                    receiptNumber: `REG-${newPatient.id}-${Date.now()}`,
-                    receiptDate: new Date().toLocaleDateString(),
-                    patientName: newPatient.name,
-                    patientEmail: newPatient.email,
-                    items: [{
-                        description: 'Registration & Consultation',
-                        quantity: 1,
-                        unitPrice: 5000,
-                        totalPrice: 5000
-                    }],
-                    subtotal: 5000,
-                    amountPaid: 5000,
-                    totalDueFromPatient: 5000,
-                    paymentMethod: 'New Registration Fee',
-                    isHmoCovered: false,
-                    hmoName: 'N/A',
-                    coveredAmount: 0,
-                    latestDentalRecord: null
-                };
+                // MODIFICATION: Check if the patient has an HMO plan.
+                const isHmoPatient = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name;
+                let receiptData;
+
+                if (isHmoPatient) {
+                    // If HMO patient, create a receipt with 0 cost.
+                    receiptData = {
+                        receiptNumber: `REG-${newPatient.id}-${Date.now()}`,
+                        receiptDate: new Date().toLocaleDateString(),
+                        patientName: newPatient.name,
+                        patientEmail: newPatient.email,
+                        items: [{
+                            description: 'Registration & Consultation (Covered by HMO)',
+                            quantity: 1,
+                            unitPrice: 0,
+                            totalPrice: 0
+                        }],
+                        subtotal: 0,
+                        amountPaid: 0,
+                        totalDueFromPatient: 0,
+                        paymentMethod: 'HMO Coverage',
+                        isHmoCovered: true,
+                        hmoName: (newPatient.hmo as { name: string }).name,
+                        coveredAmount: 0,
+                        latestDentalRecord: null
+                    };
+                } else {
+                    // If not an HMO patient, create a standard receipt with the registration fee.
+                    receiptData = {
+                        receiptNumber: `REG-${newPatient.id}-${Date.now()}`,
+                        receiptDate: new Date().toLocaleDateString(),
+                        patientName: newPatient.name,
+                        patientEmail: newPatient.email,
+                        items: [{
+                            description: 'Registration & Consultation',
+                            quantity: 1,
+                            unitPrice: 5000,
+                            totalPrice: 5000
+                        }],
+                        subtotal: 5000,
+                        amountPaid: 5000,
+                        totalDueFromPatient: 5000,
+                        paymentMethod: 'New Registration Fee',
+                        isHmoCovered: false,
+                        hmoName: 'N/A',
+                        coveredAmount: 0,
+                        latestDentalRecord: null
+                    };
+                }
                 const senderUserId = 1; // Assuming 1 is a default/system user ID
                 await emailService.sendReceiptEmail(newPatient.email, receiptData, senderUserId);
-                console.log(`Registration receipt sent to ${newPatient.email}`);
+                console.log(`Registration confirmation sent to ${newPatient.email}`);
             } catch (emailError: any) {
-                console.error(`Error sending registration receipt email: ${emailError.message}`);
+                console.error(`Error sending registration confirmation email: ${emailError.message}`);
             }
         }
 
@@ -168,31 +198,61 @@ export class PatientService {
 
         if (familyHead.email) {
             try {
-                const receiptData = {
-                    receiptNumber: `REG-FAM-${familyHead.id}-${Date.now()}`,
-                    receiptDate: new Date().toLocaleDateString(),
-                    patientName: familyHead.name,
-                    patientEmail: familyHead.email,
-                    items: [{
-                        description: 'Registration & Consultation(Family)',
-                        quantity: 1,
-                        unitPrice: 10000,
-                        totalPrice: 10000
-                    }],
-                    subtotal: 10000,
-                    amountPaid: 10000,
-                    totalDueFromPatient: 10000,
-                    paymentMethod: 'New Registration Fee',
-                    isHmoCovered: false,
-                    hmoName: 'N/A',
-                    coveredAmount: 0,
-                    latestDentalRecord: null
-                };
+                // MODIFICATION: Check if the family head has an HMO plan.
+                const isHmoPatient = familyHead.hmo && typeof familyHead.hmo === 'object' && (familyHead.hmo as { name?: string }).name;
+                let receiptData;
+
+                if (isHmoPatient) {
+                    // If HMO family, create a receipt with 0 cost.
+                    receiptData = {
+                        receiptNumber: `REG-FAM-${familyHead.id}-${Date.now()}`,
+                        receiptDate: new Date().toLocaleDateString(),
+                        patientName: familyHead.name,
+                        patientEmail: familyHead.email,
+                        items: [{
+                            description: 'Registration & Consultation (Family, Covered by HMO)',
+                            quantity: 1,
+                            unitPrice: 0,
+                            totalPrice: 0
+                        }],
+                        subtotal: 0,
+                        amountPaid: 0,
+                        totalDueFromPatient: 0,
+                        paymentMethod: 'HMO Coverage',
+                        isHmoCovered: true,
+                        hmoName: (familyHead.hmo as { name: string }).name,
+                        coveredAmount: 0,
+                        latestDentalRecord: null
+                    };
+                } else {
+                    // If not an HMO family, create a standard receipt with the family registration fee.
+                    receiptData = {
+                        receiptNumber: `REG-FAM-${familyHead.id}-${Date.now()}`,
+                        receiptDate: new Date().toLocaleDateString(),
+                        patientName: familyHead.name,
+                        patientEmail: familyHead.email,
+                        items: [{
+                            description: 'Registration & Consultation (Family)',
+                            quantity: 1,
+                            unitPrice: 10000,
+                            totalPrice: 10000
+                        }],
+                        subtotal: 10000,
+                        amountPaid: 10000,
+                        totalDueFromPatient: 10000,
+                        paymentMethod: 'New Registration Fee',
+                        isHmoCovered: false,
+                        hmoName: 'N/A',
+                        coveredAmount: 0,
+                        latestDentalRecord: null
+                    };
+                }
+
                 const senderUserId = 1; // Assuming 1 is a default/system user ID
                 await emailService.sendReceiptEmail(familyHead.email, receiptData, senderUserId);
-                console.log(`Family registration receipt sent to ${familyHead.email}`);
+                console.log(`Family registration confirmation sent to ${familyHead.email}`);
             } catch (emailError: any) {
-                console.error(`Error sending family registration receipt email: ${emailError.message}`);
+                console.error(`Error sending family registration confirmation email: ${emailError.message}`);
             }
         }
 

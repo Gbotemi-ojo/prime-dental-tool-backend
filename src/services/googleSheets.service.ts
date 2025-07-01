@@ -85,7 +85,8 @@ export class GoogleSheetsService {
      * @param receiptData The structured data of the receipt.
      * This includes fields like receiptDate, patientName, patientEmail, servicesRendered,
      * calculatedSubtotal, hmoProvider, hmoCoveredAmount, totalDueFromPatient,
-     * paymentMethod, and formattedTimestamp.
+-    * paymentMethod, and formattedTimestamp.
++    * paymentMethod, formattedTimestamp, and outstanding balance.
      */
     async appendReceipts(receiptData: any): Promise<void> {
         if (!this.sheets) {
@@ -134,20 +135,26 @@ export class GoogleSheetsService {
             const now = new Date();
             const formattedTimestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
 
+            // --- NEW: Extract and format the final outstanding balance ---
+            const outstandingValue = parseFloat(receiptData.outstanding || 0);
+            const finalOutstanding = (!isNaN(outstandingValue) ? outstandingValue : 0).toFixed(2);
+
             const rowData = [
-                receiptDate,
-                patientName,
-                patientEmail,
-                servicesRendered,
-                finalCalculatedSubtotal, // Use the formatted subtotal
-                hmoProvider,
-                hmoCoveredAmount,
-                totalDueFromPatient,
-                paymentMethod,
-                formattedTimestamp,
+                receiptDate,          // Col A
+                patientName,          // Col B
+                patientEmail,         // Col C
+                servicesRendered,     // Col D
+                finalCalculatedSubtotal, // Col E
+                hmoProvider,          // Col F
+                hmoCoveredAmount,     // Col G
+                totalDueFromPatient,  // Col H
+                paymentMethod,        // Col I
+                formattedTimestamp,   // Col J
+                finalOutstanding,     // Col K (NEW)
             ];
 
-            const range = 'Sheet2!A:J'; // Assuming 10 columns for receipt data
+            // --- MODIFIED: Updated range to include the new 'Outstanding' column (K) ---
+            const range = 'Sheet2!A:K';
 
             await this.sheets.spreadsheets.values.append({
                 spreadsheetId: this.spreadsheetId,
@@ -157,7 +164,7 @@ export class GoogleSheetsService {
                     values: [rowData],
                 },
             });
-            console.log('Successfully appended receipt data to Google Sheet.');
+            console.log('Successfully appended receipt data with outstanding balance to Google Sheet.');
         } catch (error: any) {
             console.error('Error appending receipt data to Google Sheet:', error.message);
             if (error.response && error.response.data) {
@@ -181,7 +188,8 @@ export class GoogleSheetsService {
         try {
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Sheet2!A:J', // Specify the range covering all your receipt data columns
+                // --- MODIFIED: Updated range to fetch the new 'Outstanding' column (K) ---
+                range: 'Sheet2!A:K',
             });
 
             const rows = response.data.values;
