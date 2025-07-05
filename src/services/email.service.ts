@@ -4,7 +4,7 @@ import path from 'path';
 import handlebars from 'handlebars'; // Import handlebars
 import { db } from '../config/database';
 import { users } from '../../db/schema';
-import { eq, ne } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm'; // MODIFIED: Imported 'inArray' and removed 'ne'
 import { googleSheetsService } from './googleSheets.service'; // Import the Google Sheets Service
 
 export class EmailService {
@@ -72,15 +72,15 @@ export class EmailService {
     }
 
     /**
-     * Fetches email addresses of all staff members excluding 'nurses' from the database.
+     * Fetches email addresses of all 'owner' and 'staff' members from the database.
      * @returns An array of staff email addresses.
      */
-    private async _getStaffEmailsExcludingNurses(): Promise<string[]> {
+    private async _getOwnerAndStaffEmails(): Promise<string[]> { // MODIFIED: Renamed method
         try {
             const staffMembers = await db
                 .select({ email: users.email })
                 .from(users)
-                .where(ne(users.role, 'nurse')); // Exclude users with the role 'nurse'
+                .where(inArray(users.role, ['owner', 'staff'])); // MODIFIED: Query now specifically includes 'owner' and 'staff'
 
             // Filter out null/undefined emails and ensure valid format
             return staffMembers
@@ -199,7 +199,7 @@ export class EmailService {
         const htmlContent = template(templateData); // Render the template with data
 
         // Dynamically get BCC recipients
-        const staffBccRecipients = await this._getStaffEmailsExcludingNurses();
+        const staffBccRecipients = await this._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
             if (!bccRecipients.includes(this.ownerEmail)) {
@@ -251,7 +251,7 @@ export class EmailService {
         const htmlContent = template(templateData); // Render the template with data
 
         // Dynamically get BCC recipients
-        const staffBccRecipients = await this._getStaffEmailsExcludingNurses();
+        const staffBccRecipients = await this._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
             if (!bccRecipients.includes(this.ownerEmail)) {

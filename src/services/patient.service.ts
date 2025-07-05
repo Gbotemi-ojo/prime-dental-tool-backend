@@ -586,7 +586,7 @@ export class PatientService {
 
         try {
             const ownerEmail = process.env.OWNER_EMAIL || '';
-            const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses();
+            const staffEmails = await (emailService as any)._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
             const allRecipients = [...staffEmails];
             if (ownerEmail && !allRecipients.includes(ownerEmail)) {
                 allRecipients.push(ownerEmail);
@@ -634,7 +634,7 @@ export class PatientService {
 
         try {
             const ownerEmail = process.env.OWNER_EMAIL || '';
-            const staffEmails = await (emailService as any)._getStaffEmailsExcludingNurses();
+            const staffEmails = await (emailService as any)._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
             const allRecipients = [...staffEmails];
             if (ownerEmail && !allRecipients.includes(ownerEmail)) {
                 allRecipients.push(ownerEmail);
