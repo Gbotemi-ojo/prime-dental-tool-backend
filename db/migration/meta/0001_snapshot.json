@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "e865c42d-a2b2-492d-be34-bc7cc125a0a7",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "a7442405-6c76-416b-aee1-e7b3942def66",
+  "prevId": "e865c42d-a2b2-492d-be34-bc7cc125a0a7",
   "tables": {
     "dental_records": {
       "name": "dental_records",
@@ -107,6 +107,22 @@
         },
         "medication_allergy": {
           "name": "medication_allergy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "medication_hiv": {
+          "name": "medication_hiv",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "medication_hepatitis": {
+          "name": "medication_hepatitis",
           "type": "boolean",
           "primaryKey": false,
           "notNull": false,

@@ -100,6 +100,8 @@ export const dentalRecords = mysqlTable("dental_records", {
     medicationPUD: boolean("medication_pud").default(false),
     medicationBloodDisorder: boolean("medication_blood_disorder").default(false),
     medicationAllergy: boolean("medication_allergy").default(false),
+    medicationHIV: boolean("medication_hiv").default(false),
+    medicationHepatitis: boolean("medication_hepatitis").default(false),
     familySocialHistory: text("family_social_history"),
     extraOralExamination: text("extra_oral_examination"),
     intraOralExamination: text("intra_oral_examination"),
