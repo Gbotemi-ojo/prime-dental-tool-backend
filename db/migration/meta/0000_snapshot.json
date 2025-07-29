@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "e865c42d-a2b2-492d-be34-bc7cc125a0a7",
+  "id": "1cb1b320-f28f-4b20-9eec-f4a3056c6512",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "dental_records": {
@@ -113,6 +113,22 @@
           "autoincrement": false,
           "default": false
         },
+        "medication_hiv": {
+          "name": "medication_hiv",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "medication_hepatitis": {
+          "name": "medication_hepatitis",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
         "family_social_history": {
           "name": "family_social_history",
           "type": "text",
@@ -193,6 +209,13 @@
         "x_ray_findings": {
           "name": "x_ray_findings",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "xray_url": {
+          "name": "xray_url",
+          "type": "varchar(512)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -562,6 +585,13 @@
         "email": {
           "name": "email",
           "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
