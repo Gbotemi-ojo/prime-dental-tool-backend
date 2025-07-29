@@ -125,9 +125,10 @@ export class EmailService {
      * NEW: Sends an appointment reminder email.
      * @param patientEmail The patient's email address.
      * @param reminderData Data for the reminder template.
+     * @param bcc Optional BCC recipients for the reminder.
      * @returns The result of the email sending operation.
      */
-    async sendAppointmentReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; outstandingAmount?: string; }) {
+    async sendAppointmentReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; outstandingAmount?: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('reminder.html');
         const subject = `Appointment Reminder for ${reminderData.appointmentDate}`;
 
@@ -144,7 +145,7 @@ export class EmailService {
 
         const htmlContent = template(templateData);
 
-        return await this.sendEmail(patientEmail, subject, htmlContent);
+        return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
 
 
