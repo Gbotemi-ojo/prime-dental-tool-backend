@@ -6,6 +6,7 @@ import userRoutes from './user.routes';
 import inventoryRoutes from './inventory.routes';
 import invoiceRoutes from './invoice.routes'; // NEW
 import receiptRoutes from './receipt.routes'; // NEW
+import xrayRoutes from './xray.routes';
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/admin/users', userRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/invoices', invoiceRoutes); // NEW: Invoices routes
 router.use('/receipts', receiptRoutes); // NEW: Receipts routes
+router.use('/xray', xrayRoutes);
 
 export default router;
