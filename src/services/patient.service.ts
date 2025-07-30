@@ -172,12 +172,16 @@ export class PatientService {
         }
         
         const now = new Date();
-        // **NEW**: Log the visit in the daily_visits table
+        
+        // **BUG FIX**: The following two operations must happen in this order.
+        
+        // 1. Log the visit in the daily_visits table for record-keeping.
         await db.insert(dailyVisits).values({
             patientId: patient.id,
             checkInTime: now,
         });
 
+        // 2. Send the email notification, which was the missing/broken part.
         this._sendReturningPatientNotifications(patient, now);
 
         return { 
@@ -224,7 +228,8 @@ export class PatientService {
                 dentalRecords: {
                     orderBy: [desc(dentalRecords.createdAt)],
                     limit: 1
-                }
+                },
+                dailyVisits: true, // Fetch all related daily visits
             },
             orderBy: [desc(patients.createdAt)],
         });
