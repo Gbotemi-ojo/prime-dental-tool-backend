@@ -1,3 +1,10 @@
+CREATE TABLE `daily_visits` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`patient_id` int NOT NULL,
+	`check_in_time` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `daily_visits_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
 CREATE TABLE `dental_records` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`patient_id` int NOT NULL,
@@ -101,6 +108,7 @@ CREATE TABLE `users` (
 	CONSTRAINT `users_email_unique` UNIQUE(`email`)
 );
 --> statement-breakpoint
+ALTER TABLE `daily_visits` ADD CONSTRAINT `daily_visits_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_doctor_id_users_id_fk` FOREIGN KEY (`doctor_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_item_id_inventory_items_id_fk` FOREIGN KEY (`item_id`) REFERENCES `inventory_items`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

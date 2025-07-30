@@ -24,6 +24,14 @@ router.post(
     patientController.addFamilyMember
 );
 
+// --- NEW ROUTE for today's returning patients ---
+router.get(
+    '/returning-today',
+    authenticateToken,
+    authorizeRoles(['owner', 'staff', 'nurse', 'doctor']),
+    patientController.getTodaysReturningPatients
+);
+
 // GET / - Get all patients.
 // Nurses can see all patients (data is filtered in the controller).
 router.get('/', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getAllPatients);

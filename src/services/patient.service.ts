@@ -1,7 +1,7 @@
 // src/services/patient.service.ts
-import { eq, ne, and, desc, isNull } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, gte, sql } from 'drizzle-orm';
 import { db } from '../config/database';
-import { patients, dentalRecords, users } from '../../db/schema';
+import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { googleSheetsService } from './googleSheets.service';
 import { emailService } from './email.service';
@@ -160,9 +160,7 @@ export class PatientService {
     }
 
     async addReturningGuest(identifier: string) {
-        // Check if the identifier is an email or a phone number
         const isEmail = identifier.includes('@');
-        
         const queryCondition = isEmail 
             ? eq(patients.email, identifier) 
             : eq(patients.phoneNumber, identifier);
@@ -170,11 +168,16 @@ export class PatientService {
         const [patient] = await db.select().from(patients).where(queryCondition).limit(1);
         
         if (!patient) {
-            // Updated error message for clarity
             throw new Error('Patient with this phone number or email not found.');
         }
-
+        
         const now = new Date();
+        // **NEW**: Log the visit in the daily_visits table
+        await db.insert(dailyVisits).values({
+            patientId: patient.id,
+            checkInTime: now,
+        });
+
         this._sendReturningPatientNotifications(patient, now);
 
         return { 
@@ -183,6 +186,35 @@ export class PatientService {
             visitDate: now.toISOString().split('T')[0] 
         };
     }
+    
+    // **NEW**: Method to get today's returning patients
+    async getTodaysReturningPatients() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to the beginning of the day
+
+        const todaysVisits = await db.select({
+            id: dailyVisits.id,
+            checkInTime: dailyVisits.checkInTime,
+            patient: {
+                id: patients.id,
+                name: patients.name,
+                sex: patients.sex,
+                dateOfBirth: patients.dateOfBirth,
+                hmo: patients.hmo,
+                nextAppointmentDate: patients.nextAppointmentDate,
+                // Add contact info here to be filtered by role in the controller
+                phoneNumber: patients.phoneNumber,
+                email: patients.email,
+            }
+        })
+        .from(dailyVisits)
+        .leftJoin(patients, eq(dailyVisits.patientId, patients.id))
+        .where(gte(dailyVisits.checkInTime, today))
+        .orderBy(desc(dailyVisits.checkInTime));
+        
+        return todaysVisits;
+    }
+
 
     async getAllPatients() {
         const allPatients = await db.query.patients.findMany({
@@ -239,7 +271,6 @@ export class PatientService {
         
         await db.update(patients).set({ ...patientData, updatedAt: new Date() }).where(eq(patients.id, patientId));
         
-        // UPDATED: Propagate address and HMO changes to family members
         if (existingPatient.isFamilyHead) {
             const memberUpdateData: { hmo?: any; address?: any; updatedAt?: Date } = {};
             let shouldUpdateMembers = false;

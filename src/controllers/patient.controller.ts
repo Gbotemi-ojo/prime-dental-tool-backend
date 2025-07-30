@@ -115,6 +115,30 @@ export class PatientController {
           }
         }
       };
+      
+    // **NEW**: Controller method for today's returning patients
+    getTodaysReturningPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+        try {
+            const todaysVisits = await patientService.getTodaysReturningPatients();
+            if (req.user?.role === 'nurse' || req.user?.role === 'doctor') {
+                const filteredVisits = todaysVisits.map(visit => {
+                    const { patient, ...restOfVisit } = visit;
+                    if (patient) {
+                        const { phoneNumber, email, ...safePatient } = patient;
+                        return { ...restOfVisit, patient: safePatient };
+                    } else {
+                        return { ...restOfVisit, patient: null };
+                    }
+                });
+                res.json(filteredVisits);
+            } else {
+                res.json(todaysVisits);
+            }
+        } catch (error) {
+            console.error('Error in getTodaysReturningPatients controller:', error);
+            res.status(500).json({ error: 'Server error fetching today\'s returning patients.' });
+        }
+    };
 
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

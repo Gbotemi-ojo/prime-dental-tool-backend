@@ -23,6 +23,7 @@ export const patients = mysqlTable("patients", {
 // --- PATIENT RELATIONS ---
 export const patientRelations = relations(patients, ({ one, many }) => ({
     dentalRecords: many(dentalRecords),
+    dailyVisits: many(dailyVisits), // ADDED RELATION
     familyHead: one(patients, {
         fields: [patients.familyId],
         references: [patients.id],
@@ -32,6 +33,22 @@ export const patientRelations = relations(patients, ({ one, many }) => ({
         relationName: 'familyHierarchy',
     }),
 }));
+
+// --- NEW SCHEMA: DAILY VISITS ---
+export const dailyVisits = mysqlTable("daily_visits", {
+    id: serial("id").primaryKey(),
+    patientId: int("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+    checkInTime: timestamp("check_in_time").defaultNow().notNull(),
+});
+
+// --- DAILY VISITS RELATIONS ---
+export const dailyVisitsRelations = relations(dailyVisits, ({ one }) => ({
+    patient: one(patients, {
+        fields: [dailyVisits.patientId],
+        references: [patients.id],
+    }),
+}));
+
 
 // --- USERS SCHEMA ---
 export const users = mysqlTable("users", {

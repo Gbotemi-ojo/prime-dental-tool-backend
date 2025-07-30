@@ -1,9 +1,62 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "1cb1b320-f28f-4b20-9eec-f4a3056c6512",
+  "id": "c5077382-044c-4328-9d87-6c39577a23ed",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "daily_visits": {
+      "name": "daily_visits",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "check_in_time": {
+          "name": "check_in_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "daily_visits_patient_id_patients_id_fk": {
+          "name": "daily_visits_patient_id_patients_id_fk",
+          "tableFrom": "daily_visits",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "daily_visits_id": {
+          "name": "daily_visits_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "dental_records": {
       "name": "dental_records",
       "columns": {
