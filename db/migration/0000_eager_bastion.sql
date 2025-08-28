@@ -95,6 +95,16 @@ CREATE TABLE `patients` (
 	CONSTRAINT `patients_email_unique` UNIQUE(`email`)
 );
 --> statement-breakpoint
+CREATE TABLE `settings` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`config` json NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	`updated_at` timestamp DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `settings_id` PRIMARY KEY(`id`),
+	CONSTRAINT `settings_name_unique` UNIQUE(`name`)
+);
+--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`username` varchar(255) NOT NULL,

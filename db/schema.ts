@@ -175,3 +175,11 @@ export const inventoryTransactionRelations = relations(inventoryTransactions, ({
         references: [users.id],
     }),
 }));
+
+export const settings = mysqlTable("settings", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).unique().notNull(),
+  config: json("config").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});

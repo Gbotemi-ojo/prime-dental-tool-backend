@@ -4,9 +4,10 @@ import authRoutes from './auth.routes';
 import patientRoutes from './patient.routes';
 import userRoutes from './user.routes';
 import inventoryRoutes from './inventory.routes';
-import invoiceRoutes from './invoice.routes'; // NEW
-import receiptRoutes from './receipt.routes'; // NEW
+import invoiceRoutes from './invoice.routes';
+import receiptRoutes from './receipt.routes';
 import xrayRoutes from './xray.routes';
+import settingsRoutes from './settings.routes'; // Import settings routes
 
 const router = Router();
 
@@ -20,8 +21,9 @@ router.use('/auth', authRoutes);
 router.use('/patients', patientRoutes);
 router.use('/admin/users', userRoutes);
 router.use('/inventory', inventoryRoutes);
-router.use('/invoices', invoiceRoutes); // NEW: Invoices routes
-router.use('/receipts', receiptRoutes); // NEW: Receipts routes
+router.use('/invoices', invoiceRoutes);
+router.use('/receipts', receiptRoutes);
 router.use('/xray', xrayRoutes);
+router.use('/settings', settingsRoutes); // Add settings routes
 
 export default router;

@@ -13,7 +13,6 @@ interface AuthenticatedRequest extends Request {
 export class UserController {
   constructor() {}
 
-  // ADMIN ROUTES (Accessible by 'owner' role)
   createStaffAccount = async (req: Request, res: Response): Promise<void> => {
     const { username, password, email, role } = req.body;
 
@@ -27,7 +26,7 @@ export class UserController {
       return;
     }
 
-    if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ error: 'Invalid email address format.' });
       return;
     }
@@ -36,10 +35,10 @@ export class UserController {
       const result = await userService.createUser({ username, password, email, role });
       res.status(result.status).json(result.success ? { message: result.message, user: result.user } : { error: result.message });
     } catch (error) {
-      console.error('Error creating staff account:', error);
-      res.status(500).json({ error: 'Server error creating staff account.' });
+      console.error('Error in createStaffAccount controller:', error);
+      res.status(500).json({ error: 'Server error creating user account.' });
     }
-  };
+  }
 
   getAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
