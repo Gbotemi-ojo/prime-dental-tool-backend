@@ -357,7 +357,7 @@ export class PatientController {
     }
   }
 
-  updateDentalRecord = async (req: Request, res: Response): Promise<void> => {
+  updateDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const recordId = parseInt(req.params.id);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
@@ -393,6 +393,53 @@ export class PatientController {
     } catch (error) {
       console.error('Error in deleteDentalRecord controller:', error);
       res.status(500).json({ error: 'Server error deleting dental record.' });
+    }
+  }
+
+  getDoctorSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const doctorId = parseInt(req.params.doctorId);
+    if (isNaN(doctorId)) {
+        res.status(400).json({ error: 'Invalid doctor ID.' });
+        return;
+    }
+    try {
+        const patients = await patientService.getPatientsForDoctor(doctorId);
+        res.json(patients);
+    } catch (error) {
+        console.error('Error in getDoctorSchedule controller:', error);
+        res.status(500).json({ error: 'Server error fetching doctor schedule.' });
+    }
+  }
+
+  getAllPatientsForScheduling = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const patients = await patientService.getAllPatientsForScheduling();
+        res.json(patients);
+    } catch (error) {
+        console.error('Error in getAllPatientsForScheduling controller:', error);
+        res.status(500).json({ error: 'Server error fetching all patients for scheduling.' });
+    }
+  }
+
+  assignDoctor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const patientId = parseInt(req.params.patientId);
+    const { doctorId } = req.body;
+    const receptionistId = req.user!.userId;
+
+    if (isNaN(patientId) || !doctorId) {
+        res.status(400).json({ error: 'Invalid patient ID or doctor ID.' });
+        return;
+    }
+    try {
+        const result = await patientService.assignDoctorToPatient(patientId, doctorId, receptionistId);
+        if (!result.success) {
+            res.status(500).json({ error: result.message });
+            return;
+        }
+        res.json({ message: result.message });
+    } catch (error) {
+        console.error('Error in assignDoctor controller:', error);
+        res.status(500).json({ error: 'Server error assigning doctor.' });
     }
   }
 }

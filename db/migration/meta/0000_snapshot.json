@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "c5077382-044c-4328-9d87-6c39577a23ed",
+  "id": "8c721add-a92c-44f8-8c60-7f896dec2636",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_visits": {
@@ -76,6 +76,13 @@
         },
         "doctor_id": {
           "name": "doctor_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "receptionist_id": {
+          "name": "receptionist_id",
           "type": "int",
           "primaryKey": false,
           "notNull": false,
@@ -340,6 +347,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "doctor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "dental_records_receptionist_id_users_id_fk": {
+          "name": "dental_records_receptionist_id_users_id_fk",
+          "tableFrom": "dental_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "receptionist_id"
           ],
           "columnsTo": [
             "id"

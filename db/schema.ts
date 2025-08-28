@@ -76,6 +76,8 @@ export const dentalRecords = mysqlTable("dental_records", {
         .references(() => patients.id, { onDelete: 'cascade' }),
     doctorId: int("doctor_id")
         .references(() => users.id, { onDelete: 'set null' }),
+    receptionistId: int("receptionist_id")
+        .references(() => users.id, { onDelete: 'set null' }),
     complaint: text("complaint"),
     historyOfPresentComplaint: text("history_of_present_complaint"),
     pastDentalHistory: text("past_dental_history"),
@@ -119,6 +121,12 @@ export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
     doctor: one(users, {
         fields: [dentalRecords.doctorId],
         references: [users.id],
+        relationName: 'doctor_records'
+    }),
+    receptionist: one(users, {
+        fields: [dentalRecords.receptionistId],
+        references: [users.id],
+        relationName: 'receptionist_records'
     }),
 }));
 

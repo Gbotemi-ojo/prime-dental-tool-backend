@@ -9,6 +9,7 @@ CREATE TABLE `dental_records` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`patient_id` int NOT NULL,
 	`doctor_id` int,
+	`receptionist_id` int,
 	`complaint` text,
 	`history_of_present_complaint` text,
 	`past_dental_history` text,
@@ -111,6 +112,7 @@ CREATE TABLE `users` (
 ALTER TABLE `daily_visits` ADD CONSTRAINT `daily_visits_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_doctor_id_users_id_fk` FOREIGN KEY (`doctor_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_receptionist_id_users_id_fk` FOREIGN KEY (`receptionist_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_item_id_inventory_items_id_fk` FOREIGN KEY (`item_id`) REFERENCES `inventory_items`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `inventory_transactions` ADD CONSTRAINT `inventory_transactions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `patients` ADD CONSTRAINT `patients_family_id_patients_id_fk` FOREIGN KEY (`family_id`) REFERENCES `patients`(`id`) ON DELETE set null ON UPDATE no action;

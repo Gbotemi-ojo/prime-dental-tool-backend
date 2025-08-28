@@ -1,5 +1,5 @@
 // src/services/user.service.ts
-import { eq, ne, inArray } from 'drizzle-orm'; // ADDED inArray to this import
+import { eq, ne, inArray } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import { db } from '../config/database';
 import { users } from '../../db/schema';
@@ -14,7 +14,7 @@ const saltRounds = 10; // Ensure this matches your user creation salt rounds
 export class UserService {
   constructor() {}
 
-  async createUser(userData: { username: string; password?: string; email?: string; role: 'owner' | 'staff' | 'nurse' }) {
+  async createUser(userData: { username: string; password?: string; email?: string; role: 'owner' | 'staff' | 'nurse' | 'doctor' }) {
     const { username, password, email, role } = userData;
 
     const [existingUserByUsername] = await db.select().from(users).where(eq(users.username, username)).limit(1);
@@ -59,11 +59,41 @@ export class UserService {
     });
   }
 
-  // UPDATED: Now includes 'nurse' role in the staff accounts list
   async getStaffAccounts() {
-    // Modified the 'where' clause to use inArray for multiple roles
     const staffAccounts = await db.select().from(users).where(inArray(users.role, ['staff', 'nurse','doctor']));
     return staffAccounts.map(({ passwordHash, ...user }) => user);
+  }
+
+  /**
+   * Fetches users from the database based on their role.
+   * @param role The role to filter by (e.g., 'doctor', 'staff').
+   * @returns A promise that resolves to an array of users.
+   */
+  async getUsersByRole(role: 'owner' | 'staff' | 'nurse' | 'doctor'): Promise<Omit<UserSelect, 'passwordHash'>[]> {
+      try {
+          const usersByRole = await db.select().from(users).where(eq(users.role, role));
+          // We should not return the password hash to the client
+          return usersByRole.map(user => {
+              const { passwordHash, ...safeUser } = user;
+              return safeUser;
+          });
+      } catch (error) {
+          console.error(`Error fetching users with role ${role}:`, error);
+          throw new Error(`Could not fetch users with role ${role}.`);
+      }
+  }
+
+  async getDoctorsAndOwners(): Promise<Omit<UserSelect, 'passwordHash'>[]> {
+      try {
+          const usersByRole = await db.select().from(users).where(inArray(users.role, ['doctor', 'owner']));
+          return usersByRole.map(user => {
+              const { passwordHash, ...safeUser } = user;
+              return safeUser;
+          });
+      } catch (error) {
+          console.error('Error fetching doctors and owners:', error);
+          throw new Error('Could not fetch doctors and owners.');
+      }
   }
 
   async getUserById(userId: number) {
@@ -82,7 +112,6 @@ export class UserService {
       return { success: false, message: 'User not found.', status: 404 };
     }
 
-    // Role change restrictions
     if (userId === currentLoggedInUserId && userToUpdate.role === 'owner' && updateData.role !== 'owner') {
       return { success: false, message: "Forbidden: An owner cannot change their own role.", status: 403 };
     }
@@ -90,7 +119,6 @@ export class UserService {
       return { success: false, message: "Forbidden: Cannot change an owner's role to a non-owner role.", status: 403 };
     }
 
-    // Deactivation restrictions
     if (userId === currentLoggedInUserId && userToUpdate.role === 'owner' && updateData.isActive === false) {
       return { success: false, message: "Forbidden: An owner cannot deactivate their own account.", status: 403 };
     }
@@ -106,7 +134,7 @@ export class UserService {
     if (updateData.email && updateData.email !== userToUpdate.email) {
       const [existingUserWithEmail] = await db.select().from(users).where(eq(users.email, updateData.email)).limit(1);
       if (existingUserWithEmail && existingUserWithEmail.id !== userId) {
-        return { success: false, message: 'Email already exists.', status: 409 };
+        return { success: false, message: 'Email already in use.', status: 409 };
       }
     }
 

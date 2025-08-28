@@ -14,7 +14,6 @@ export class UserController {
   constructor() {}
 
   // ADMIN ROUTES (Accessible by 'owner' role)
-
   createStaffAccount = async (req: Request, res: Response): Promise<void> => {
     const { username, password, email, role } = req.body;
 
@@ -28,7 +27,7 @@ export class UserController {
       return;
     }
 
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
       res.status(400).json({ error: 'Invalid email address format.' });
       return;
     }
@@ -37,36 +36,55 @@ export class UserController {
       const result = await userService.createUser({ username, password, email, role });
       res.status(result.status).json(result.success ? { message: result.message, user: result.user } : { error: result.message });
     } catch (error) {
-      console.error('Error in createStaffAccount controller:', error);
-      res.status(500).json({ error: 'Server error creating user account.' });
+      console.error('Error creating staff account:', error);
+      res.status(500).json({ error: 'Server error creating staff account.' });
     }
-  }
+  };
 
   getAllUsers = async (req: Request, res: Response): Promise<void> => {
     try {
       const allUsers = await userService.getAllUsers();
-      res.json(allUsers);
+      res.status(200).json(allUsers);
     } catch (error) {
       console.error('Error in getAllUsers controller:', error);
-      res.status(500).json({ error: 'Server error fetching users.' });
+      res.status(500).json({ error: 'Server error fetching all users.' });
     }
-  }
+  };
 
   getStaffAccounts = async (req: Request, res: Response): Promise<void> => {
     try {
       const staffAccounts = await userService.getStaffAccounts();
-      res.json(staffAccounts);
+      res.status(200).json(staffAccounts);
     } catch (error) {
       console.error('Error in getStaffAccounts controller:', error);
       res.status(500).json({ error: 'Server error fetching staff accounts.' });
     }
-  }
+  };
+
+  getDoctorAccounts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const doctorAccounts = await userService.getUsersByRole('doctor');
+      res.status(200).json(doctorAccounts);
+    } catch (error) {
+      console.error('Error in getDoctorAccounts controller:', error);
+      res.status(500).json({ error: 'Server error fetching doctor accounts.' });
+    }
+  };
+  
+  getDoctorsAndOwners = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const doctorsAndOwners = await userService.getDoctorsAndOwners();
+      res.status(200).json(doctorsAndOwners);
+    } catch (error) {
+      console.error('Error in getDoctorsAndOwners controller:', error);
+      res.status(500).json({ error: 'Server error fetching doctors and owners.' });
+    }
+  };
 
   getUserById = async (req: Request, res: Response): Promise<void> => {
     const userId = parseInt(req.params.id);
-
     if (isNaN(userId)) {
-      res.status(400).json({ error: 'Invalid user ID provided.' });
+      res.status(400).json({ error: 'Invalid user ID.' });
       return;
     }
 
@@ -76,52 +94,39 @@ export class UserController {
         res.status(404).json({ error: 'User not found.' });
         return;
       }
-      res.json(user);
+      res.status(200).json(user);
     } catch (error) {
       console.error('Error in getUserById controller:', error);
-      res.status(500).json({ error: 'Server error fetching user account details.' });
+      res.status(500).json({ error: 'Server error fetching user.' });
     }
-  }
+  };
 
   updateUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const userId = parseInt(req.params.id);
-    const { username, email, role, isActive } = req.body;
+    const updateData = req.body;
     const currentLoggedInUserId = req.user!.userId;
 
     if (isNaN(userId)) {
-      res.status(400).json({ error: 'Invalid user ID provided.' });
-      return;
-    }
-
-    if (!username || !role || typeof isActive !== 'boolean') {
-      res.status(400).json({ error: 'Username, Role, and isActive (boolean) are required.' });
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ error: 'Invalid email address format.' });
+      res.status(400).json({ error: 'Invalid user ID.' });
       return;
     }
 
     try {
-      const result = await userService.updateUser(userId, { username, email, role, isActive }, currentLoggedInUserId);
+      const result = await userService.updateUser(userId, updateData, currentLoggedInUserId);
       res.status(result.status).json(result.success ? { message: result.message } : { error: result.message });
     } catch (error) {
       console.error('Error in updateUser controller:', error);
-      res.status(500).json({ error: 'Server error updating user account.' });
+      res.status(500).json({ error: 'Server error updating user.' });
     }
-  }
+  };
 
   updateUserStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const userId = parseInt(req.params.id);
     const { isActive } = req.body;
     const currentLoggedInUserId = req.user!.userId;
 
-    if (typeof isActive !== 'boolean') {
-      res.status(400).json({ error: 'isActive must be a boolean.' });
-      return;
-    }
-    if (isNaN(userId)) {
-      res.status(400).json({ error: 'Invalid user ID.' });
+    if (isNaN(userId) || typeof isActive !== 'boolean') {
+      res.status(400).json({ error: 'Invalid user ID or status.' });
       return;
     }
 
@@ -130,9 +135,9 @@ export class UserController {
       res.status(result.status).json(result.success ? { message: result.message } : { error: result.message });
     } catch (error) {
       console.error('Error in updateUserStatus controller:', error);
-      res.status(500).json({ error: 'Server error updating user account status.' });
+      res.status(500).json({ error: 'Server error updating user status.' });
     }
-  }
+  };
 
   deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const userId = parseInt(req.params.id);
@@ -148,22 +153,16 @@ export class UserController {
       res.status(result.status).json(result.success ? { message: result.message } : { error: result.message });
     } catch (error) {
       console.error('Error in deleteUser controller:', error);
-      res.status(500).json({ error: 'Server error deleting user account.' });
+      res.status(500).json({ error: 'Server error deleting user.' });
     }
-  }
-
-  // USER PROFILE ROUTES (Accessible by authenticated user for their own profile)
+  };
 
   updateProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const currentLoggedInUserId = req.user!.userId;
     const { username, email } = req.body;
 
-    if (!username) {
-      res.status(400).json({ error: 'Username is required.' });
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ error: 'Invalid email address format.' });
+    if (!username && !email) {
+      res.status(400).json({ error: 'Username or email must be provided for update.' });
       return;
     }
 
@@ -174,7 +173,7 @@ export class UserController {
       console.error('Error in updateProfile controller:', error);
       res.status(500).json({ error: 'Server error updating profile.' });
     }
-  }
+  };
 
   changePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const currentLoggedInUserId = req.user!.userId;
@@ -200,7 +199,7 @@ export class UserController {
       console.error('Error in changePassword controller:', error);
       res.status(500).json({ error: 'Server error changing password.' });
     }
-  }
+  };
 }
 
 export const userController = new UserController();

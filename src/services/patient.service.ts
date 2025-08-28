@@ -1,5 +1,5 @@
 // src/services/patient.service.ts
-import { eq, ne, and, desc, isNull, gte, sql } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, gte, sql, or } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -15,7 +15,7 @@ interface NewFamilyHeadData {
     dateOfBirth?: string | null;
     phoneNumber: string;
     email?: string | null;
-    address?: string | null; // UPDATED: Added address
+    address?: string | null;
     hmo?: { name: string; status?: string } | null;
 }
 
@@ -35,7 +35,7 @@ export class PatientService {
     constructor() {}
 
     async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true) {
-        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData; // UPDATED: Destructured address
+        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
         if (existingPatient.length > 0) {
             throw new Error('A patient with this phone number already exists.');
@@ -46,7 +46,7 @@ export class PatientService {
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             phoneNumber,
             email: email || null,
-            address: address || null, // UPDATED: Added address to insert
+            address: address || null,
             hmo: hmo || null,
             isFamilyHead: true,
             familyId: null,
@@ -105,7 +105,7 @@ export class PatientService {
         const [inserted] = await db.insert(patients).values({
             name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             familyId: headId, isFamilyHead: false, hmo: familyHead.hmo,
-            address: familyHead.address, // UPDATED: Inherit address from family head
+            address: familyHead.address,
             phoneNumber: null, email: null, createdAt: new Date(), updatedAt: new Date(),
         });
         const [newMember] = await db.query.patients.findMany({ where: eq(patients.id, inserted.insertId), limit: 1 });
@@ -172,16 +172,14 @@ export class PatientService {
         }
         
         const now = new Date();
-        
-        // **BUG FIX**: The following two operations must happen in this order.
-        
-        // 1. Log the visit in the daily_visits table for record-keeping.
+
+        // 1. PRESERVED NEW FEATURE: This logs the returning patient's visit to the database.
         await db.insert(dailyVisits).values({
             patientId: patient.id,
             checkInTime: now,
         });
 
-        // 2. Send the email notification, which was the missing/broken part.
+        // 2. RESTORED OLD FEATURE: This sends the email notification for the returning patient.
         this._sendReturningPatientNotifications(patient, now);
 
         return { 
@@ -191,10 +189,9 @@ export class PatientService {
         };
     }
     
-    // **NEW**: Method to get today's returning patients
     async getTodaysReturningPatients() {
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to the beginning of the day
+        today.setHours(0, 0, 0, 0);
 
         const todaysVisits = await db.select({
             id: dailyVisits.id,
@@ -206,7 +203,6 @@ export class PatientService {
                 dateOfBirth: patients.dateOfBirth,
                 hmo: patients.hmo,
                 nextAppointmentDate: patients.nextAppointmentDate,
-                // Add contact info here to be filtered by role in the controller
                 phoneNumber: patients.phoneNumber,
                 email: patients.email,
             }
@@ -227,9 +223,12 @@ export class PatientService {
                 familyMembers: true,
                 dentalRecords: {
                     orderBy: [desc(dentalRecords.createdAt)],
-                    limit: 1
+                    limit: 1,
+                    with: {
+                        doctor: true
+                    }
                 },
-                dailyVisits: true, // Fetch all related daily visits
+                dailyVisits: true,
             },
             orderBy: [desc(patients.createdAt)],
         });
@@ -239,7 +238,8 @@ export class PatientService {
                 ...p,
                 latestTreatmentDone: latestRecord?.treatmentDone,
                 latestTreatmentPlan: latestRecord?.treatmentPlan,
-                latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis
+                latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis,
+                doctorName: latestRecord?.doctor?.username
             };
         });
     }
@@ -433,7 +433,12 @@ export class PatientService {
         if (!recordExists) { return { success: false, message: 'Dental record not found.' }; }
         const cleanedUpdateData: Partial<DentalRecordInsert> = { ...updateData };
         delete cleanedUpdateData.patientId;
-        delete cleanedUpdateData.doctorId;
+        
+        // Only allow doctor to be changed if it's not the main doctorId field
+        if (cleanedUpdateData.doctorId && !updateData.receptionistId) {
+            delete cleanedUpdateData.doctorId;
+        }
+
         await db.update(dentalRecords).set({ ...cleanedUpdateData, updatedAt: new Date() }).where(eq(dentalRecords.id, recordId));
         return { success: true, message: 'Dental record updated successfully.' };
     }
@@ -445,6 +450,119 @@ export class PatientService {
         return { success: true, message: 'Dental record deleted successfully.' };
     }
 
+    async getPatientsForDoctor(doctorId: number) {
+        const patientRecords = await db
+            .select({
+                patientId: patients.id,
+                patientName: patients.name,
+                provisionalDiagnosis: dentalRecords.provisionalDiagnosis,
+                treatmentPlan: dentalRecords.treatmentPlan,
+                doctorId: dentalRecords.doctorId,
+                doctorName: users.username,
+                dentalRecordId: dentalRecords.id
+            })
+            .from(patients)
+            .leftJoin(dentalRecords, eq(patients.id, dentalRecords.patientId))
+            .leftJoin(users, eq(dentalRecords.doctorId, users.id))
+            .where(eq(dentalRecords.doctorId, doctorId))
+            .orderBy(desc(dentalRecords.createdAt));
+
+        // Basic deduplication, could be improved
+        type PatientRecord = {
+            patientId: number;
+            patientName: string;
+            provisionalDiagnosis: string | null;
+            treatmentPlan: string | null;
+            doctorId: number | null;
+            doctorName: string | null;
+            dentalRecordId: number | null;
+        };
+        const uniquePatients = patientRecords.reduce((acc: PatientRecord[], current) => {
+            if (!acc.find(item => item.patientId === current.patientId)) {
+                acc.push(current as PatientRecord);
+            }
+            return acc;
+        }, [] as PatientRecord[]);
+
+        return uniquePatients;
+    }
+
+     async getAllPatientsForScheduling() {
+        const patientRecords = await db
+            .select({
+                patientId: patients.id,
+                patientName: patients.name,
+                provisionalDiagnosis: dentalRecords.provisionalDiagnosis,
+                treatmentPlan: dentalRecords.treatmentPlan,
+                doctorId: dentalRecords.doctorId,
+                doctorName: users.username,
+                dentalRecordId: dentalRecords.id,
+                // --- UPDATED ---
+                // Added the nextAppointmentDate and createdAt fields for sorting
+                nextAppointmentDate: patients.nextAppointmentDate,
+                createdAt: patients.createdAt
+                // --- END UPDATE ---
+            })
+            .from(patients)
+            .leftJoin(dentalRecords, eq(patients.id, dentalRecords.patientId))
+            .leftJoin(users, eq(dentalRecords.doctorId, users.id))
+            .orderBy(desc(dentalRecords.createdAt));
+
+        // Basic deduplication, could be improved
+        type PatientRecord = {
+            patientId: number;
+            patientName: string;
+            provisionalDiagnosis: string | null;
+            treatmentPlan: string | null;
+            doctorId: number | null;
+            doctorName: string | null;
+            dentalRecordId: number | null;
+            // --- UPDATED ---
+            nextAppointmentDate: Date | null;
+            createdAt: Date;
+            // --- END UPDATE ---
+        };
+        const mappedRecords: PatientRecord[] = patientRecords.map(rec => ({
+            patientId: rec.patientId,
+            patientName: rec.patientName,
+            provisionalDiagnosis: rec.provisionalDiagnosis as string | null,
+            treatmentPlan: rec.treatmentPlan as string | null,
+            doctorId: rec.doctorId as number | null,
+            doctorName: rec.doctorName as string | null,
+            dentalRecordId: rec.dentalRecordId as number | null,
+            // --- UPDATED ---
+            nextAppointmentDate: rec.nextAppointmentDate,
+            createdAt: rec.createdAt,
+            // --- END UPDATE ---
+        }));
+
+        const uniquePatients = mappedRecords.reduce((acc: PatientRecord[], current: PatientRecord) => {
+            if (!acc.find(item => item.patientId === current.patientId)) {
+                acc.push(current);
+            }
+            return acc;
+        }, [] as PatientRecord[]);
+        
+        return uniquePatients;
+    }
+
+    async assignDoctorToPatient(patientId: number, doctorId: number, receptionistId: number) {
+        // Find the latest dental record for the patient
+        const [latestRecord] = await db.select().from(dentalRecords)
+            .where(eq(dentalRecords.patientId, patientId))
+            .orderBy(desc(dentalRecords.createdAt))
+            .limit(1);
+
+        if (latestRecord) {
+            await db.update(dentalRecords).set({ doctorId, receptionistId }).where(eq(dentalRecords.id, latestRecord.id));
+        } else {
+            // Or create a new one if none exist
+            await db.insert(dentalRecords).values({ patientId, doctorId, receptionistId });
+        }
+        return { success: true, message: 'Doctor assigned successfully.' };
+    }
+
+
     private async _sendNewPatientNotifications(newPatient: PatientSelect) {
         try {
             const dobFormatted = newPatient.dateOfBirth ? newPatient.dateOfBirth.toISOString().split('T')[0] : '';
@@ -452,7 +570,7 @@ export class PatientService {
             const hmoNameForSheet = newPatient.hmo && typeof newPatient.hmo === 'object' && (newPatient.hmo as { name?: string }).name ? (newPatient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 newPatient.name, newPatient.sex, dobFormatted, newPatient.phoneNumber, newPatient.email || '',
-                newPatient.address || '', // UPDATED: Added address to Google Sheet
+                newPatient.address || '',
                 hmoNameForSheet, firstApptFormatted, ''
             ]);
         } catch (sheetError: any) {
@@ -480,7 +598,7 @@ export class PatientService {
                         <li><strong>Address:</strong> ${newPatient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`; // UPDATED: Added address to email notification
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
@@ -496,7 +614,7 @@ export class PatientService {
             const hmoNameForSheet = patient.hmo && typeof patient.hmo === 'object' && (patient.hmo as { name?: string }).name ? (patient.hmo as { name?: string }).name : '';
             await googleSheetsService.appendRow([
                 patient.name, patient.sex, dobFormatted, patient.phoneNumber, patient.email || '',
-                patient.address || '', // UPDATED: Added address to Google Sheet
+                patient.address || '',
                 hmoNameForSheet, firstApptFormatted, lastApptFormatted
             ]);
         } catch (sheetError: any) {
@@ -526,7 +644,7 @@ export class PatientService {
                         <li><strong>Address:</strong> ${patient.address || 'N/A'}</li>
                         <li><strong>HMO:</strong> ${hmoName}</li>
                         <li><strong>Initial Registration Date:</strong> ${registrationDateFormatted}</li>
-                    </ul>`; // UPDATED: Added address to email notification
+                    </ul>`;
                 await emailService.sendEmail(allRecipients.join(','), subject, htmlContent);
             }
         } catch (emailError: any) {
