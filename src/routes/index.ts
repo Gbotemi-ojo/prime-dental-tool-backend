@@ -8,6 +8,7 @@ import invoiceRoutes from './invoice.routes';
 import receiptRoutes from './receipt.routes';
 import xrayRoutes from './xray.routes';
 import settingsRoutes from './settings.routes'; // Import settings routes
+import billingRoutes from './billing.routes'
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use('/invoices', invoiceRoutes);
 router.use('/receipts', receiptRoutes);
 router.use('/xray', xrayRoutes);
 router.use('/settings', settingsRoutes); // Add settings routes
+router.use('/billing', billingRoutes);
 
 export default router;

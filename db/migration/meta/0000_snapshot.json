@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "97291a45-aee5-46c0-b714-650be1b6cff0",
+  "id": "139ffd4d-8469-4f67-b07d-5b4103fe43d7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_visits": {
@@ -379,6 +379,44 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "hmo_providers": {
+      "name": "hmo_providers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "hmo_providers_id": {
+          "name": "hmo_providers_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "hmo_providers_name_unique": {
+          "name": "hmo_providers_name_unique",
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
     "inventory_items": {
       "name": "inventory_items",
       "columns": {
@@ -744,6 +782,51 @@
           "name": "patients_email_unique",
           "columns": [
             "email"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "service_items": {
+      "name": "service_items",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price": {
+          "name": "price",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "service_items_id": {
+          "name": "service_items_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "service_items_name_unique": {
+          "name": "service_items_name_unique",
+          "columns": [
+            "name"
           ]
         }
       },

@@ -45,6 +45,13 @@ CREATE TABLE `dental_records` (
 	CONSTRAINT `dental_records_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
+CREATE TABLE `hmo_providers` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	CONSTRAINT `hmo_providers_id` PRIMARY KEY(`id`),
+	CONSTRAINT `hmo_providers_name_unique` UNIQUE(`name`)
+);
+--> statement-breakpoint
 CREATE TABLE `inventory_items` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,
@@ -93,6 +100,14 @@ CREATE TABLE `patients` (
 	CONSTRAINT `patients_id` PRIMARY KEY(`id`),
 	CONSTRAINT `patients_phone_number_unique` UNIQUE(`phone_number`),
 	CONSTRAINT `patients_email_unique` UNIQUE(`email`)
+);
+--> statement-breakpoint
+CREATE TABLE `service_items` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`price` decimal(10,2) NOT NULL,
+	CONSTRAINT `service_items_id` PRIMARY KEY(`id`),
+	CONSTRAINT `service_items_name_unique` UNIQUE(`name`)
 );
 --> statement-breakpoint
 CREATE TABLE `settings` (

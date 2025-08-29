@@ -6,28 +6,39 @@ const SETTINGS_NAME = 'dashboardPermissions';
 
 export class SettingsService {
 
-    /**
-     * Retrieves the dashboard permission settings from the database.
-     * If no settings exist, it creates and returns a default set.
-     * @returns {Promise<any>} The configuration object for dashboard permissions.
-     */
     async getSettings(): Promise<any> {
         try {
             let currentSettings = await db.query.settings.findFirst({
                 where: eq(settings.name, SETTINGS_NAME),
             });
 
-            // If no settings are found in the database, create the initial default settings.
             if (!currentSettings) {
                 const initialConfig = {
-                    canSeePatientManagement: ['staff', 'nurse', 'doctor'],
-                    canSeeDoctorSchedule: ['staff', 'doctor'],
-                    canSeeAppointments: ['staff'],
-                    canSeeInventoryManagement: ['staff'],
-                    canSeeStaffManagement: [],
-                    canSeeMyProfile: [],
-                    canSeeAllInventoryTransactions: ['staff'],
-                    canSeeRevenueReport: [],
+                    dashboard: {
+                        canSeePatientManagement: ['staff', 'nurse', 'doctor'],
+                        canSeeDoctorSchedule: ['staff', 'doctor'],
+                        canSeeAppointments: ['staff'],
+                        canSeeInventoryManagement: ['staff'],
+                        canSeeStaffManagement: [],
+                        canSeeMyProfile: ['staff', 'nurse', 'doctor'],
+                        canSeeAllInventoryTransactions: ['staff'],
+                        canSeeRevenueReport: [],
+                    },
+                    patientManagement: {
+                        canSeeContactDetails: ['staff'],
+                        canEditBio: ['staff'],
+                        canAddDentalRecord: ['staff', 'doctor', 'nurse'],
+                        canSendInvoice: ['staff', 'nurse'],
+                        canSendReceipt: ['staff', 'nurse'],
+                        canSetAppointment: ['staff', 'nurse'],
+                        canSeeNextAppointment: ['staff', 'doctor', 'nurse'],
+                    },
+                    // --- NEW: Inventory management action permissions ---
+                    inventoryManagement: {
+                        canAddItem: ['staff'],
+                        canEditItem: [], // Default to owner-only by being empty
+                        canRecordTransaction: ['staff', 'nurse', 'doctor'],
+                    }
                 };
                 
                 await db.insert(settings).values({
@@ -48,11 +59,6 @@ export class SettingsService {
         }
     }
 
-    /**
-     * Updates the dashboard permission settings in the database.
-     * @param {any} newConfig - The new settings configuration object to save.
-     * @returns {Promise<any>} The updated configuration object.
-     */
     async updateSettings(newConfig: any): Promise<any> {
         try {
             await db.update(settings)

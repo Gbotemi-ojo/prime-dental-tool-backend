@@ -183,3 +183,14 @@ export const settings = mysqlTable("settings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
+
+export const serviceItems = mysqlTable("service_items", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull().unique(),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+});
+
+export const hmoProviders = mysqlTable("hmo_providers", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull().unique(),
+});
