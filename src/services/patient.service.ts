@@ -396,7 +396,6 @@ export class PatientService {
         return { success: true, message: 'Patient information updated successfully.' };
     }
 
-    // ... (scheduleNextAppointment and all other methods remain the same) ...
     async scheduleNextAppointment(patientId: number, interval: string) {
         const [patientExists] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
         if (!patientExists) {
@@ -430,7 +429,7 @@ export class PatientService {
     }
 
     async sendAppointmentReminder(patientId: number) {
-        const patient = await this.getPatientById(patientId);
+        const patient = await this._getPatientWithContactInfoForInternalUse(patientId);
         if (!patient) { return { success: false, message: "Patient not found." }; }
         if (!patient.email) { return { success: false, message: "Patient does not have an email address." }; }
         if (!patient.nextAppointmentDate) { return { success: false, message: "Patient does not have a next appointment date." }; }
