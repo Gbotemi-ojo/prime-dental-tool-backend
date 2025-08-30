@@ -13,7 +13,6 @@ router.get('/key-metrics', dataAnalysisController.getDashboardKeyMetrics);
 
 // --- CLINICAL ANALYTICS ---
 router.get('/diagnoses-common', dataAnalysisController.getMostCommonDiagnoses);
-router.get('/treatments-distribution', dataAnalysisController.getTreatmentPlanDistribution);
 router.get('/doctor-performance', dataAnalysisController.getDoctorPerformance);
 
 // --- OPERATIONAL ANALYTICS ---
@@ -22,10 +21,10 @@ router.get('/patient-flow', dataAnalysisController.getPatientFlowAnalysis);
 
 // --- FINANCIAL ANALYTICS ---
 router.get('/hmo-distribution', dataAnalysisController.getHmoProviderDistribution);
+router.get('/treatment-revenue', dataAnalysisController.getTreatmentRevenueAnalysis);
 
 // --- INVENTORY ANALYTICS ---
 router.get('/inventory-usage-top', dataAnalysisController.getMostUsedInventoryItems);
 
 
 export default router;
-

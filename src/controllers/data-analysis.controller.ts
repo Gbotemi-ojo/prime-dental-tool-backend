@@ -30,15 +30,27 @@ export class DataAnalysisController {
     }
 
     /**
-     * Handles the request for treatment distribution data.
+     * Handles the request for treatment revenue analysis.
      */
-    getTreatmentPlanDistribution = async (req: Request, res: Response): Promise<void> => {
+    getTreatmentRevenueAnalysis = async (req: Request, res: Response): Promise<void> => {
         try {
-            const distribution = await dataAnalysisService.getTreatmentDistribution();
-            res.json(distribution);
+            const { startDate, endDate } = req.query;
+
+            if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
+                res.status(400).json({ error: 'Please provide both startDate and endDate query parameters in YYYY-MM-DD format.' });
+                return;
+            }
+            
+            // Add time to end date to include the whole day
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+
+            const revenueData = await dataAnalysisService.getTreatmentRevenue(start, end);
+            res.json(revenueData);
         } catch (error) {
-            console.error('Error fetching treatment distribution:', error);
-            res.status(500).json({ error: 'Server error fetching treatment distribution.' });
+            console.error('Error fetching treatment revenue analysis:', error);
+            res.status(500).json({ error: 'Server error fetching treatment revenue analysis.' });
         }
     }
 
@@ -109,4 +121,3 @@ export class DataAnalysisController {
 }
 
 export const dataAnalysisController = new DataAnalysisController();
-

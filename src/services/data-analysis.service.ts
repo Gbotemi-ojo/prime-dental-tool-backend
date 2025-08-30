@@ -104,18 +104,73 @@ export class DataAnalysisService {
     }
     
     /**
-     * Analyzes the distribution of performed treatments.
+     * Analyzes revenue generated from treatment plans within a specific date range.
+     * @param startDate The start of the date range.
+     * @param endDate The end of the date range.
      */
-    async getTreatmentDistribution() {
-        // This is a placeholder as `treatmentDone` is a text field. 
-        // A more complex NLP or structured data approach would be needed for full analysis.
-        // For now, we'll count records with non-empty treatment fields.
-        const [result] = await db
-            .select({ count: count() })
+    async getTreatmentRevenue(startDate: Date, endDate: Date) {
+        // 1. Fetch all service items to create a price map.
+        const services = await db.select().from(serviceItems);
+        const priceMap = new Map<string, number>();
+        services.forEach(service => {
+            // @ts-ignore
+            priceMap.set(service.name, parseFloat(service.price));
+        });
+
+        // 2. Fetch dental records within the date range that have a treatment plan.
+        const records = await db
+            .select({ 
+                treatmentPlan: dentalRecords.treatmentPlan,
+                createdAt: dentalRecords.createdAt 
+            })
             .from(dentalRecords)
-            .where(not(isNull(dentalRecords.treatmentDone)));
-        
-        return [{ name: 'Procedures Performed', value: result?.count || 0 }];
+            .where(and(
+                between(dentalRecords.createdAt, startDate, endDate),
+                not(isNull(dentalRecords.treatmentPlan))
+            ));
+
+        // 3. Process the records to calculate revenue.
+        const revenueByTreatment: Record<string, { count: number; revenue: number }> = {};
+        const revenueByDay: Record<string, number> = {};
+
+        records.forEach(record => {
+            const treatments = record.treatmentPlan as string[] | null;
+            const recordDate = new Date(record.createdAt).toISOString().split('T')[0];
+
+            if (!revenueByDay[recordDate]) {
+                revenueByDay[recordDate] = 0;
+            }
+
+            if (Array.isArray(treatments)) {
+                treatments.forEach(treatmentName => {
+                    const price = priceMap.get(treatmentName) || 0;
+
+                    // Aggregate by treatment name
+                    if (!revenueByTreatment[treatmentName]) {
+                        revenueByTreatment[treatmentName] = { count: 0, revenue: 0 };
+                    }
+                    revenueByTreatment[treatmentName].count += 1;
+                    revenueByTreatment[treatmentName].revenue += price;
+                    
+                    // Aggregate total revenue by day
+                    revenueByDay[recordDate] += price;
+                });
+            }
+        });
+
+        // 4. Format the output.
+        const treatmentBreakdown = Object.entries(revenueByTreatment)
+            .map(([name, { count, revenue }]) => ({ name, count, revenue }))
+            .sort((a, b) => b.revenue - a.revenue);
+
+        const dailyRevenue = Object.entries(revenueByDay)
+            .map(([date, revenue]) => ({ date, revenue }))
+            .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        return {
+            treatmentBreakdown,
+            dailyRevenue,
+        };
     }
 
     /**
@@ -218,4 +273,3 @@ export class DataAnalysisService {
 }
 
 export const dataAnalysisService = new DataAnalysisService();
-
