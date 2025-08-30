@@ -31,7 +31,7 @@ export class InvoiceController {
     }
 
     try {
-      const patient = await patientService.getPatientById(patientId, req.user);
+      const patient = await patientService._getPatientWithContactInfoForInternalUse(patientId);
       if (!patient || !patient.email) {
         res.status(404).json({ error: 'Patient not found or patient email not available.' });
         return;

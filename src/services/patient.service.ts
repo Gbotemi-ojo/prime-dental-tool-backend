@@ -94,6 +94,7 @@ const stripContactInfo = (patient: any): any | null => {
 export class PatientService {
   constructor() {}
   
+  // ... (addGuestPatient, addFamilyMember, etc. - all other methods remain the same) ...
   async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true): Promise<PatientSelect> {
         const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
@@ -337,6 +338,18 @@ export class PatientService {
         const shouldSeeContact = canUserSeeContactDetails(user, settings);
         return shouldSeeContact ? patient : stripContactInfo(patient);
     }
+    
+    /**
+     * FOR INTERNAL USE: Fetches a patient's full record, including contact info,
+     * without applying permission-based stripping.
+     * @param patientId The ID of the patient to fetch.
+     * @returns The full patient object or null if not found.
+     */
+    async _getPatientWithContactInfoForInternalUse(patientId: number): Promise<PatientSelect | null> {
+        const [patient] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
+        return patient || null;
+    }
+
 
     async updatePatient(patientId: number, patientData: Partial<PatientInsert>) {
         const [existingPatient] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
@@ -383,6 +396,7 @@ export class PatientService {
         return { success: true, message: 'Patient information updated successfully.' };
     }
 
+    // ... (scheduleNextAppointment and all other methods remain the same) ...
     async scheduleNextAppointment(patientId: number, interval: string) {
         const [patientExists] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
         if (!patientExists) {

@@ -27,7 +27,7 @@ export class ReceiptController {
     }
 
     try {
-      const patient = await patientService.getPatientById(receiptData.patientId, req.user);
+      const patient = await patientService._getPatientWithContactInfoForInternalUse(receiptData.patientId);
       if (!patient) {
         res.status(404).json({ error: 'Patient not found.' });
         return;
