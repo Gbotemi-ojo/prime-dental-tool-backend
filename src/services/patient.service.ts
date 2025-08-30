@@ -46,13 +46,24 @@ interface NewGuestFamilyData extends NewFamilyHeadData {
  * @returns {boolean} True if the user has permission, false otherwise.
  */
 const canUserSeeContactDetails = (user: AuthenticatedUser | undefined, settings: any): boolean => {
-    if (!user || !settings || !settings.patientManagement) {
+    // If there's no user context, they can't see the details.
+    if (!user) {
         return false;
     }
+
+    // Now TypeScript knows 'user' is defined for all subsequent checks.
+    // The 'owner' role always has access.
     if (user.role === 'owner') {
         return true;
     }
-    return settings.patientManagement['canSeeContactDetails']?.includes(user.role);
+
+    // Check for valid settings and the specific permission array's existence.
+    if (!settings || !settings.patientManagement || !settings.patientManagement['canSeeContactDetails']) {
+        return false;
+    }
+
+    // Finally, check if the user's role is in the permissions list.
+    return settings.patientManagement['canSeeContactDetails'].includes(user.role);
 };
 
 /**
@@ -714,4 +725,3 @@ export class PatientService {
 }
 
 export const patientService = new PatientService();
-
