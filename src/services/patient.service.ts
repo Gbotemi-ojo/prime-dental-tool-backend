@@ -448,6 +448,47 @@ export class PatientService {
         }
     }
 
+    /**
+     * NEW: Sends a procedure-specific reminder email to a patient.
+     * @param patientId The ID of the patient.
+     * @param reminderType The type of reminder to send ('scaling', 'extraction', 'rootCanal').
+     * @returns A result object indicating success or failure.
+     */
+    async sendProcedureSpecificReminder(patientId: number, reminderType: string) {
+        const patient = await this._getPatientWithContactInfoForInternalUse(patientId);
+        if (!patient) { return { success: false, message: "Patient not found." }; }
+        if (!patient.email) { return { success: false, message: "Patient does not have an email address." }; }
+
+        try {
+            const staffBccRecipients = await (emailService as any)._getOwnerAndStaffEmails();
+            let result;
+
+            switch (reminderType) {
+                case 'scaling':
+                    result = await emailService.sendScalingReminder(patient.email, { patientName: patient.name }, staffBccRecipients);
+                    break;
+                case 'extraction':
+                    if (!patient.nextAppointmentDate) { return { success: false, message: "Patient does not have a next appointment date for the extraction review." }; }
+                    result = await emailService.sendExtractionReminder(patient.email, { patientName: patient.name, appointmentDate: patient.nextAppointmentDate.toISOString() }, staffBccRecipients);
+                    break;
+                case 'rootCanal':
+                    result = await emailService.sendRootCanalReminder(patient.email, { patientName: patient.name }, staffBccRecipients);
+                    break;
+                default:
+                    return { success: false, message: "Invalid reminder type specified." };
+            }
+
+            if (result.success) {
+                return { success: true, message: `Specific reminder for '${reminderType}' sent to ${patient.name}.` };
+            } else {
+                throw new Error('Email transporter failed to send the email.');
+            }
+        } catch (error: any) {
+            console.error(`Error sending specific reminder '${reminderType}': ${error.message}`);
+            return { success: false, message: `Failed to send reminder. ${error.message}` };
+        }
+    }
+
     async createDentalRecord(patientId: number, doctorId: number, recordData: Partial<DentalRecordInsert>) {
         const [patientExists] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
         if (!patientExists) { return { success: false, message: 'Patient not found.' }; }

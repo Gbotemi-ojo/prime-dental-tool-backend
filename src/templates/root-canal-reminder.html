@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Root Canal Therapy Reminder</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f6f8; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e0e4e8; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); }
+        .header { background-color: #3F51B5; color: #ffffff; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+        .content { padding: 30px 40px; color: #263238; line-height: 1.7; }
+        .content p { margin: 0 0 15px; }
+        .patient-name { font-weight: 600; }
+        .footer { background-color: #f4f6f8; text-align: center; padding: 20px; font-size: 14px; color: #546E7A; }
+        .footer a { color: #3F51B5; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Root Canal Therapy Reminder</h1>
+        </div>
+        <div class="content">
+            <p>Hi <span class="patient-name">{{patientName}}</span>,</p>
+            <p>This is a friendly reminder from <strong>PRIME DENTAL CLINIC</strong> regarding your root canal therapy, which we started last week.</p>
+            <p>Completing the next phase of your treatment is essential for its long-term success, relieving discomfort, and saving your natural tooth. Your scheduled appointment is crucial for this progress.</p>
+            <p>Please remember to continue practicing good oral hygiene gently around the treated area.</p>
+            <p>If you have any questions or are experiencing any significant discomfort, please don’t hesitate to call us at <strong>07030708877</strong>.</p>
+            <p>We look forward to seeing you soon and continuing your journey to a healthy smile!</p>
+            <br>
+            <p>Best regards,</p>
+            <p><strong>The Team at Prime Dental Clinic</strong></p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{currentYear}} Prime Dental Clinic. All rights reserved.</p>
+            <p><a href="mailto:{{clinicEmail}}">{{clinicEmail}}</a></p>
+            <p>For any complaint, message or call the medical director on WhatsApp +234 806 690 4232</p>
+        </div>
+    </div>
+</body>
+</html>

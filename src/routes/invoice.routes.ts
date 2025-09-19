@@ -7,6 +7,6 @@ const router = Router();
 
 // POST /api/invoices/send - Send an invoice email
 // Accessible by 'owner', 'staff', and 'nurse' roles (as per requirement, nurse can send)
-router.post('/send', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse']), invoiceController.sendInvoice);
+router.post('/send', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse','doctor']), invoiceController.sendInvoice);
 
 export default router;

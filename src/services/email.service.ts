@@ -122,7 +122,7 @@ export class EmailService {
     }
 
     /**
-     * NEW: Sends an appointment reminder email.
+     * Sends an appointment reminder email.
      * @param patientEmail The patient's email address.
      * @param reminderData Data for the reminder template.
      * @param bcc Optional BCC recipients for the reminder.
@@ -145,6 +145,59 @@ export class EmailService {
 
         const htmlContent = template(templateData);
 
+        return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
+    }
+
+    /**
+     * NEW: Sends a scaling and polishing reminder.
+     * @param patientEmail Patient's email.
+     * @param reminderData Template data.
+     * @param bcc Optional BCC recipients.
+     */
+    async sendScalingReminder(patientEmail: string, reminderData: { patientName: string; }, bcc?: string[]) {
+        const template = await this.compileTemplate('scaling-reminder.html');
+        const subject = `Important Recall Notice for Your Dental Health`;
+        const htmlContent = template({ 
+            patientName: reminderData.patientName,
+            currentYear: new Date().getFullYear(),
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com'
+        });
+        return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
+    }
+
+    /**
+     * NEW: Sends a post-extraction reminder.
+     * @param patientEmail Patient's email.
+     * @param reminderData Template data.
+     * @param bcc Optional BCC recipients.
+     */
+    async sendExtractionReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; }, bcc?: string[]) {
+        const template = await this.compileTemplate('extraction-reminder.html');
+        const subject = `Post-Extraction Review Reminder`;
+        const formattedDate = new Date(reminderData.appointmentDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const htmlContent = template({
+            patientName: reminderData.patientName,
+            appointmentDate: formattedDate,
+            currentYear: new Date().getFullYear(),
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com'
+        });
+        return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
+    }
+
+    /**
+     * NEW: Sends a root canal therapy reminder.
+     * @param patientEmail Patient's email.
+     * @param reminderData Template data.
+     * @param bcc Optional BCC recipients.
+     */
+    async sendRootCanalReminder(patientEmail: string, reminderData: { patientName: string; }, bcc?: string[]) {
+        const template = await this.compileTemplate('root-canal-reminder.html');
+        const subject = `Reminder: Continuing Your Root Canal Therapy`;
+        const htmlContent = template({
+            patientName: reminderData.patientName,
+            currentYear: new Date().getFullYear(),
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com'
+        });
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
 

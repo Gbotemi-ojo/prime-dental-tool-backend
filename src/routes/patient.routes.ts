@@ -75,12 +75,20 @@ router.post(
     patientController.scheduleNextAppointment
 );
 
-// NEW ROUTE: POST /:patientId/send-reminder - Send an appointment reminder email.
+// POST /:patientId/send-reminder - Send a generic appointment reminder email.
 router.post(
     '/:patientId/send-reminder',
     authenticateToken,
     authorizeRoles(['owner', 'staff', 'doctor','nurse']),
     patientController.sendAppointmentReminder
+);
+
+// NEW ROUTE: POST /:patientId/reminders/:type - Send a procedure-specific reminder.
+router.post(
+    '/:patientId/reminders/:type',
+    authenticateToken,
+    authorizeRoles(['owner', 'staff', 'doctor', 'nurse']),
+    patientController.sendProcedureSpecificReminder
 );
 
 

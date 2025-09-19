@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "139ffd4d-8469-4f67-b07d-5b4103fe43d7",
+  "id": "13a8f207-0ab1-4234-a8e1-c0a35c6b02f2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_visits": {
@@ -856,6 +856,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -874,8 +881,31 @@
           "default": "(now())"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "name_user_idx": {
+          "name": "name_user_idx",
+          "columns": [
+            "name",
+            "user_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "settings_user_id_users_id_fk": {
+          "name": "settings_user_id_users_id_fk",
+          "tableFrom": "settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "settings_id": {
           "name": "settings_id",
@@ -884,14 +914,7 @@
           ]
         }
       },
-      "uniqueConstraints": {
-        "settings_name_unique": {
-          "name": "settings_name_unique",
-          "columns": [
-            "name"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "checkConstraint": {}
     },
     "users": {
