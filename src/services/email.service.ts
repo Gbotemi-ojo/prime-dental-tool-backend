@@ -1,11 +1,12 @@
+// src/services/email.service.ts
 import nodemailer from 'nodemailer';
 import fs from 'fs/promises';
 import path from 'path';
-import handlebars from 'handlebars'; // Import handlebars
+import handlebars from 'handlebars'; 
 import { db } from '../config/database';
 import { users } from '../../db/schema';
-import { eq, inArray } from 'drizzle-orm'; // MODIFIED: Imported 'inArray' and removed 'ne'
-import { googleSheetsService } from './googleSheets.service'; // Import the Google Sheets Service
+import { inArray } from 'drizzle-orm';
+import { googleSheetsService } from './googleSheets.service';
 
 export class EmailService {
     private transporter: nodemailer.Transporter;
@@ -14,25 +15,22 @@ export class EmailService {
     constructor() {
         this.ownerEmail = process.env.OWNER_EMAIL || '';
 
-        // --- SMTP Environment Variable Configuration Check ---
         if (!process.env.SMTP_HOST || !process.env.SMTP_PORT || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.EMAIL_FROM) {
             console.warn('SMTP environment variables are not fully configured. Email sending may fail.');
-            // Detailed log for debugging initial config
             console.warn('Current SMTP Config Attempt (Sensitive Info Hidden):', {
                 host: process.env.SMTP_HOST,
                 port: process.env.SMTP_PORT,
                 user: process.env.SMTP_USER ? 'CONFIGURED' : 'NOT CONFIGURED',
-                pass: process.env.SMTP_PASS ? 'CONFIGURED' : 'NOT CONFIGURED', // Avoid logging raw password
+                pass: process.env.SMTP_PASS ? 'CONFIGURED' : 'NOT CONFIGURED',
                 emailFrom: process.env.EMAIL_FROM,
                 secure: process.env.SMTP_SECURE
             });
         }
 
-        // --- Nodemailer Transporter Initialization ---
         this.transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT || '587', 10), // Default to 587 if not set
-            secure: process.env.SMTP_SECURE === 'true', // 'true' for 465 (SSL), 'false' for 587 (STARTTLS)
+            port: parseInt(process.env.SMTP_PORT || '587', 10),
+            secure: process.env.SMTP_SECURE === 'true',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
@@ -42,7 +40,6 @@ export class EmailService {
             }
         });
 
-        // --- SMTP Connection Verification ---
         this.transporter.verify((error, success) => {
             if (error) {
                 console.error('Failed to connect to SMTP server. Check SMTP credentials and network settings:', error);
@@ -52,12 +49,6 @@ export class EmailService {
         });
     }
 
-    /**
-     * Reads and compiles an HTML email template using Handlebars.
-     * @param templateName The name of the template file (e.g., 'invoice.html').
-     * @returns A compiled Handlebars template function.
-     * @throws Error if the template file cannot be read.
-     */
     private async compileTemplate(templateName: string): Promise<handlebars.TemplateDelegate<any>> {
         const templatePath = path.join(__dirname, '../templates', templateName);
         console.log(`[DEBUG] Attempting to read and compile template from: ${templatePath}`);
@@ -71,44 +62,30 @@ export class EmailService {
         }
     }
 
-    /**
-     * Fetches email addresses of all 'owner' and 'staff' members from the database.
-     * @returns An array of staff email addresses.
-     */
-    private async _getOwnerAndStaffEmails(): Promise<string[]> { // MODIFIED: Renamed method
+    private async _getOwnerAndStaffEmails(): Promise<string[]> {
         try {
             const staffMembers = await db
                 .select({ email: users.email })
                 .from(users)
-                .where(inArray(users.role, ['owner', 'staff'])); // MODIFIED: Query now specifically includes 'owner' and 'staff'
+                .where(inArray(users.role, ['owner', 'staff']));
 
-            // Filter out null/undefined emails and ensure valid format
             return staffMembers
                 .map(user => user.email)
                 .filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) as string[];
         } catch (error) {
             console.error('Error fetching staff emails from database:', error);
-            return []; // Return empty array on error to prevent email sending failure
+            return [];
         }
     }
 
-    /**
-     * Sends an email with HTML content using the configured transporter.
-     * @param to Recipient email address.
-     * @param subject Email subject.
-     * @param htmlContent HTML content of the email.
-     * @param cc Optional CC recipients (array of strings).
-     * @param bcc Optional BCC recipients (array of strings).
-     * @returns A success object with messageId or a failure object with an error.
-     */
     async sendEmail(to: string, subject: string, htmlContent: string, cc?: string[], bcc?: string[]) {
         const mailOptions = {
             from: process.env.EMAIL_FROM,
-            to: to, // Primary recipient
+            to: to,
             subject: subject,
             html: htmlContent,
-            cc: cc && cc.length > 0 ? cc.join(',') : undefined, // Convert array to comma-separated string
-            bcc: bcc && bcc.length > 0 ? bcc.join(',') : undefined, // Convert array to comma-separated string
+            cc: cc && cc.length > 0 ? cc.join(',') : undefined,
+            bcc: bcc && bcc.length > 0 ? bcc.join(',') : undefined,
         };
 
         try {
@@ -121,13 +98,6 @@ export class EmailService {
         }
     }
 
-    /**
-     * Sends an appointment reminder email.
-     * @param patientEmail The patient's email address.
-     * @param reminderData Data for the reminder template.
-     * @param bcc Optional BCC recipients for the reminder.
-     * @returns The result of the email sending operation.
-     */
     async sendAppointmentReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; outstandingAmount?: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('reminder.html');
         const subject = `Appointment Reminder for ${reminderData.appointmentDate}`;
@@ -147,13 +117,8 @@ export class EmailService {
 
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
-
-    /**
-     * NEW: Sends a scaling and polishing reminder.
-     * @param patientEmail Patient's email.
-     * @param reminderData Template data.
-     * @param bcc Optional BCC recipients.
-     */
+    
+    // ... (other reminder methods like sendScalingReminder) ...
     async sendScalingReminder(patientEmail: string, reminderData: { patientName: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('scaling-reminder.html');
         const subject = `Important Recall Notice for Your Dental Health`;
@@ -164,13 +129,7 @@ export class EmailService {
         });
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
-
-    /**
-     * NEW: Sends a post-extraction reminder.
-     * @param patientEmail Patient's email.
-     * @param reminderData Template data.
-     * @param bcc Optional BCC recipients.
-     */
+    
     async sendExtractionReminder(patientEmail: string, reminderData: { patientName: string; appointmentDate: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('extraction-reminder.html');
         const subject = `Post-Extraction Review Reminder`;
@@ -184,12 +143,6 @@ export class EmailService {
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
 
-    /**
-     * NEW: Sends a root canal therapy reminder.
-     * @param patientEmail Patient's email.
-     * @param reminderData Template data.
-     * @param bcc Optional BCC recipients.
-     */
     async sendRootCanalReminder(patientEmail: string, reminderData: { patientName: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('root-canal-reminder.html');
         const subject = `Reminder: Continuing Your Root Canal Therapy`;
@@ -200,35 +153,42 @@ export class EmailService {
         });
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
-
-
+    
     /**
-     * Generates and sends an invoice email based on a template.
-     * @param patientEmail The patient's email address.
-     * @param invoiceData Data to populate the invoice template (e.g., invoiceNumber, invoiceDate, items, totalAmount).
-     * @param senderUserId The ID of the user sending the invoice (for logging/auditing, if needed).
+     * NEW: Sends a birthday wish email.
+     * @param patientEmail Patient's email.
+     * @param data Template data.
      * @returns The result of the email sending operation.
      */
+    async sendBirthdayWish(patientEmail: string, data: { patientName: string }) {
+        const template = await this.compileTemplate('birthday-wish.html');
+        const subject = `Happy Birthday, ${data.patientName}!`;
+        const htmlContent = template({
+            patientName: data.patientName,
+            currentYear: new Date().getFullYear(),
+        });
+        // No BCC needed for individual birthday emails
+        return await this.sendEmail(patientEmail, subject, htmlContent);
+    }
+
+    // ... (sendInvoiceEmail and sendReceiptEmail methods) ...
     async sendInvoiceEmail(patientEmail: string, invoiceData: any, senderUserId: number) {
         console.log("[EmailService Debug] invoiceData received (before processing):", invoiceData); // Debug log for incoming data
 
         const template = await this.compileTemplate('invoice.html'); // Use compileTemplate
         const subject = `Invoice from Prime Dental Clinic`;
 
-        // Transform invoiceData.items into the 'services' format expected by the Handlebars template
-        // Ensure totalPrice is formatted to 2 decimal places for display
         const servicesForTemplate = Array.isArray(invoiceData.items) ? invoiceData.items.map((item: any) => {
-            const calculatedTotalPrice = parseFloat(item.totalPrice || 0); // Ensure it's a number
+            const calculatedTotalPrice = parseFloat(item.totalPrice || 0);
             console.log(`[EmailService Debug] Item: ${item.description}, Raw Total Price: ${item.totalPrice}, Parsed Total Price: ${calculatedTotalPrice}, Formatted: ${calculatedTotalPrice.toFixed(2)}`);
             return {
-                name: item.description, // Map 'description' from items to 'name' for template
-                totalPrice: calculatedTotalPrice.toFixed(2), // Format totalPrice to 2 decimal places
+                name: item.description,
+                totalPrice: calculatedTotalPrice.toFixed(2),
             };
         }) : [];
 
-        console.log('[EmailService Debug] servicesForTemplate (after formatting):', servicesForTemplate); // Log for debugging
+        console.log('[EmailService Debug] servicesForTemplate (after formatting):', servicesForTemplate);
 
-        // Prepare data for the Handlebars template
         const templateData = {
             invoiceNumber: invoiceData.invoiceNumber || 'N/A',
             invoiceDate: invoiceData.invoiceDate || 'N/A',
@@ -236,24 +196,19 @@ export class EmailService {
             clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com',
             isHmoCovered: invoiceData.isHmoCovered || false,
             hmoName: invoiceData.hmoName || 'N/A',
-            services: servicesForTemplate, // Use the transformed array here
-
-            // Ensure totals are formatted to 2 decimal places
+            services: servicesForTemplate,
             subtotal: parseFloat(invoiceData.subtotal || 0).toFixed(2),
-            // Changed key from 'totalDueFromPatient' to 'totalDue' to match template's variable name for main display
-            totalDue: parseFloat(invoiceData.totalDueFromPatient || 0).toFixed(2), // This is the total patient due
-            coveredAmount: parseFloat(invoiceData.coveredAmount || 0).toFixed(2), // Add coveredAmount for template
-            
-            paymentMethod: invoiceData.paymentMethod || 'N/A', // This might not be relevant for an invoice, but keeping for flexibility
-            latestDentalRecord: invoiceData.latestDentalRecord || null, // Pass entire object
+            totalDue: parseFloat(invoiceData.totalDueFromPatient || 0).toFixed(2),
+            coveredAmount: parseFloat(invoiceData.coveredAmount || 0).toFixed(2),
+            paymentMethod: invoiceData.paymentMethod || 'N/A',
+            latestDentalRecord: invoiceData.latestDentalRecord || null,
         };
 
-        console.log('[EmailService Debug] templateData sent to Handlebars:', templateData); // Log for debugging
+        console.log('[EmailService Debug] templateData sent to Handlebars:', templateData);
 
-        const htmlContent = template(templateData); // Render the template with data
+        const htmlContent = template(templateData);
 
-        // Dynamically get BCC recipients
-        const staffBccRecipients = await this._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
+        const staffBccRecipients = await this._getOwnerAndStaffEmails();
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
             if (!bccRecipients.includes(this.ownerEmail)) {
@@ -264,21 +219,13 @@ export class EmailService {
 
         return await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
     }
-
-    /**
-     * Generates and sends a receipt email based on a template.
-     * @param patientEmail The patient's email address.
-     * @param receiptData Data to populate the receipt template (e.g., receiptNumber, amountPaid, paymentMethod).
-     * @param senderUserId The ID of the user sending the receipt.
-     * @returns The result of the email sending operation.
-     */
+    
     async sendReceiptEmail(patientEmail: string, receiptData: any, senderUserId: number) {
-        const template = await this.compileTemplate('receipt.html'); // Use compileTemplate for receipt too
+        const template = await this.compileTemplate('receipt.html');
         const subject = `Payment Receipt from Prime Dental Clinic - #${receiptData.receiptNumber}`;
 
-        // CORRECTED: Ensure properties match what receipt.html expects (description, quantity, unitPrice, totalPrice)
         const itemsForReceiptTemplate = Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
-            description: item.description, // Use 'description' as expected by template
+            description: item.description,
             quantity: item.quantity,
             unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2) : parseFloat(item.unitPrice || 0).toFixed(2),
             totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2) : parseFloat(item.totalPrice || 0).toFixed(2),
@@ -291,21 +238,19 @@ export class EmailService {
             clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com',
             isHmoCovered: receiptData.isHmoCovered || false,
             hmoName: receiptData.hmoName || 'N/A',
-            coveredAmount: parseFloat(receiptData.coveredAmount || 0).toFixed(2), // Ensure this is a number for template
-            items: itemsForReceiptTemplate, // Use the transformed array here, named 'items' as per template
-            subtotal: parseFloat(receiptData.subtotal || 0).toFixed(2), // Ensure this is a number for template
-            amountPaid: parseFloat(receiptData.amountPaid || 0).toFixed(2), // This is the actual amount patient paid (number for template)
-            totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0).toFixed(2), // Balance they owed from frontend (number for template)
+            coveredAmount: parseFloat(receiptData.coveredAmount || 0).toFixed(2),
+            items: itemsForReceiptTemplate,
+            subtotal: parseFloat(receiptData.subtotal || 0).toFixed(2),
+            amountPaid: parseFloat(receiptData.amountPaid || 0).toFixed(2),
+            totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0).toFixed(2),
             paymentMethod: receiptData.paymentMethod || 'N/A',
             latestDentalRecord: receiptData.latestDentalRecord || null,
-            // Add outstanding field. Pass it to the template if it's a positive value.
             outstanding: parseFloat(receiptData.outstanding || 0) > 0 ? parseFloat(receiptData.outstanding || 0).toFixed(2) : null,
         };
 
-        const htmlContent = template(templateData); // Render the template with data
+        const htmlContent = template(templateData);
 
-        // Dynamically get BCC recipients
-        const staffBccRecipients = await this._getOwnerAndStaffEmails(); // MODIFIED: Using renamed method
+        const staffBccRecipients = await this._getOwnerAndStaffEmails();
         const bccRecipients: string[] = [...staffBccRecipients];
         if (this.ownerEmail) {
             if (!bccRecipients.includes(this.ownerEmail)) {
@@ -314,21 +259,16 @@ export class EmailService {
         }
         const validBccRecipients = bccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 
-        // Send the email
         const emailResult = await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
 
-        // If the email was sent successfully, append the receipt data to Google Sheets
         if (emailResult.success) {
             try {
-                // Prepare data specifically for Google Sheets, ensuring all numerical values are handled
                 const receiptDataForSheet = {
-                    ...receiptData, // Copy all existing properties
-                    // Ensure numerical values are explicitly parsed as floats, defaulting to 0
+                    ...receiptData,
                     subtotal: parseFloat(receiptData.subtotal || 0),
                     amountPaid: parseFloat(receiptData.amountPaid || 0),
                     coveredAmount: parseFloat(receiptData.coveredAmount || 0),
                     totalDueFromPatient: parseFloat(receiptData.totalDueFromPatient || 0),
-                    // Map items to ensure totalPrice and unitPrice are numbers
                     items: Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
                         ...item,
                         unitPrice: parseFloat(item.unitPrice || 0),
@@ -336,7 +276,6 @@ export class EmailService {
                     })) : []
                 };
 
-                // Now, pass the sanitized data to Google Sheets service
                 await googleSheetsService.appendReceipts(receiptDataForSheet);
                 console.log('Receipt data successfully logged to Google Sheet.');
             } catch (sheetError) {
@@ -348,5 +287,4 @@ export class EmailService {
     }
 }
 
-// Export an instance of the EmailService
 export const emailService = new EmailService();
