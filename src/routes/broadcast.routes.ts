@@ -30,6 +30,14 @@ router.post(
     broadcastController.sendCustomBroadcast
 );
 
+// NEW: POST /direct-message/:patientId - Send a direct message to one patient
+router.post(
+    '/direct-message/:patientId',
+    authenticateToken,
+    authorizeRoles(allowedRoles),
+    broadcastController.sendDirectMessage
+);
+
 // GET /phone-numbers - Get all patient phone numbers comma-separated
 router.get(
     '/phone-numbers',

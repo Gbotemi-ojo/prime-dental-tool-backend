@@ -15,9 +15,9 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
-  // ... (submitGuestPatient, submitGuestFamilyPatient, addFamilyMember, recordReturningGuestVisit methods are unchanged) ...
+  // --- METHODS THAT WERE MISSING ---
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
-    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (!name || !sex || !phoneNumber) {
       res.status(400).json({ error: 'Name, sex, and phone number are required for a primary patient.' });
       return;
@@ -27,7 +27,7 @@ export class PatientController {
       return;
     }
     try {
-      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, address, hmo }); // UPDATED: Passed address
+      const newPatient = await patientService.addGuestPatient({ name, sex, dateOfBirth, phoneNumber, email, address, hmo });
       res.status(201).json({ message: 'Patient information submitted successfully.', patient: newPatient });
     } catch (error: any) {
       console.error('Error submitting guest patient info:', error);
@@ -97,42 +97,39 @@ export class PatientController {
     }
   };
 
-     recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
-        const { identifier } = req.body; // Changed from phoneNumber to identifier
-        if (!identifier) {
-          // Updated validation message
-          res.status(400).json({ error: 'Phone number or email identifier is required.' });
-          return;
-        }
-        try {
-          // Pass the identifier to the service
-          const result = await patientService.addReturningGuest(identifier);
-          res.status(200).json(result);
-        } catch (error: any) {
-          console.error('Error recording returning guest visit:', error);
-          if (error.message.includes('not found')) {
-            res.status(404).json({ error: error.message });
-          } else {
-            res.status(500).json({ error: 'Server error during visit recording.' });
-          }
-        }
-      };
+  recordReturningGuestVisit = async (req: Request, res: Response): Promise<void> => {
+    const { identifier } = req.body;
+    if (!identifier) {
+      res.status(400).json({ error: 'Phone number or email identifier is required.' });
+      return;
+    }
+    try {
+      const result = await patientService.addReturningGuest(identifier);
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error('Error recording returning guest visit:', error);
+      if (error.message.includes('not found')) {
+        res.status(404).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Server error during visit recording.' });
+      }
+    }
+  };
       
-    getTodaysReturningPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-        try {
-            // MODIFIED: Fetch settings and pass to service
-            const settings = await settingsService.getSettings();
-            const todaysVisits = await patientService.getTodaysReturningPatients(req.user, settings);
-            res.json(todaysVisits);
-        } catch (error) {
-            console.error('Error in getTodaysReturningPatients controller:', error);
-            res.status(500).json({ error: 'Server error fetching today\'s returning patients.' });
-        }
-    };
+  getTodaysReturningPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const settings = await settingsService.getSettings();
+        const todaysVisits = await patientService.getTodaysReturningPatients(req.user, settings);
+        res.json(todaysVisits);
+    } catch (error) {
+        console.error('Error in getTodaysReturningPatients controller:', error);
+        res.status(500).json({ error: 'Server error fetching today\'s returning patients.' });
+    }
+  };
 
+  // --- EXISTING AND NEW METHODS ---
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      // MODIFIED: Fetch settings and pass to service
       const settings = await settingsService.getSettings();
       const allPatients = await patientService.getAllPatients(req.user, settings);
       res.json(allPatients);
@@ -149,7 +146,6 @@ export class PatientController {
       return;
     }
     try {
-      // MODIFIED: Fetch settings and pass to service
       const settings = await settingsService.getSettings();
       const patient = await patientService.getPatientById(patientId, req.user, settings);
       
@@ -164,10 +160,9 @@ export class PatientController {
     }
   }
 
-  // ... (updatePatient and other methods are unchanged) ...
   updatePatient = async (req: Request, res: Response): Promise<void> => {
     const patientId = parseInt(req.params.id);
-    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body; // UPDATED: Destructured address
+    const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -181,7 +176,6 @@ export class PatientController {
         return;
     }
     try {
-      // UPDATED: Added address to update payload
       const updateData: Partial<InferInsertModel<typeof patients>> = { name, sex, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null, phoneNumber, email, address, hmo };
       Object.keys(updateData).forEach(key => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]);
       const result = await patientService.updatePatient(patientId, updateData);
@@ -265,6 +259,33 @@ export class PatientController {
     } catch (error) {
         console.error('Error in sendProcedureSpecificReminder controller:', error);
         res.status(500).json({ error: 'Server error sending specific reminder.' });
+    }
+  };
+  
+  sendCustomEmail = async (req: Request, res: Response): Promise<void> => {
+    const patientId = parseInt(req.params.patientId, 10);
+    const { subject, message } = req.body;
+
+    if (isNaN(patientId)) {
+        res.status(400).json({ error: 'Invalid patient ID.' });
+        return;
+    }
+    if (!subject || !message) {
+        res.status(400).json({ error: 'Email subject and message are required.' });
+        return;
+    }
+
+    try {
+        const result = await patientService.sendCustomEmail(patientId, subject, message);
+        if (!result.success) {
+            const statusCode = result.message.includes('not found') ? 404 : 400;
+            res.status(statusCode).json({ error: result.message });
+            return;
+        }
+        res.status(200).json({ message: result.message });
+    } catch (error) {
+        console.error('Error in sendCustomEmail controller:', error);
+        res.status(500).json({ error: 'Server error sending custom email.' });
     }
   };
 

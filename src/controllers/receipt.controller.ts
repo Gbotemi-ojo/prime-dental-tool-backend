@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
+import { createHash } from 'crypto'; // Import Node.js crypto module
 import { emailService } from '../services/email.service';
 import { patientService } from '../services/patient.service';
 import { googleSheetsService } from '../services/googleSheets.service';
+import { db } from '../config/database';
+import { idempotencyKeys } from '../../db/schema';
+import { eq, gte, and } from 'drizzle-orm';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -9,6 +13,34 @@ interface AuthenticatedRequest extends Request {
     role: string;
   };
 }
+
+/**
+ * Creates a stable, unique fingerprint for a receipt's content.
+ * This ensures that two identical receipts will have the same hash.
+ * @param receiptData The receipt data from the request body.
+ * @returns A SHA-256 hash string.
+ */
+function createReceiptFingerprint(receiptData: any): string {
+  // Sort items by description to ensure consistent order
+  const sortedItems = [...(receiptData.items || [])].sort((a, b) => 
+    a.description.localeCompare(b.description)
+  );
+
+  // Create a stable string from the core receipt data
+  const stableString = JSON.stringify({
+    patientId: receiptData.patientId,
+    amountPaid: receiptData.amountPaid,
+    items: sortedItems.map(item => ({ 
+      description: item.description, 
+      quantity: item.quantity, 
+      unitPrice: item.unitPrice 
+    })),
+  });
+
+  // Return a SHA-256 hash of the string
+  return createHash('sha256').update(stableString).digest('hex');
+}
+
 
 export class ReceiptController {
   constructor() {}
@@ -20,6 +52,36 @@ export class ReceiptController {
       res.status(400).json({ error: 'Receipt data (patient ID, receipt number, date, amount paid, total due, and payment method) are required.' });
       return;
     }
+
+    // --- CONTENT-BASED DUPLICATE CHECK START ---
+    const receiptHash = createReceiptFingerprint(receiptData);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    try {
+      // 1. Check if an identical receipt was sent in the last hour
+      const [recentDuplicate] = await db.select()
+        .from(idempotencyKeys)
+        .where(
+          and(
+            eq(idempotencyKeys.key, receiptHash),
+            gte(idempotencyKeys.createdAt, oneHourAgo)
+          )
+        )
+        .limit(1);
+
+      if (recentDuplicate) {
+        // 2. If yes, reject the request
+        console.warn(`Duplicate receipt submission blocked. Hash: ${receiptHash}`);
+        res.status(409).json({ error: 'This exact receipt was sent recently. Please wait before trying again.' });
+        return;
+      }
+    } catch (dbError) {
+        console.error('Database error during duplicate receipt check:', dbError);
+        res.status(500).json({ error: 'Server error during duplicate check.' });
+        return;
+    }
+    // --- CONTENT-BASED DUPLICATE CHECK END ---
+
 
     if (isNaN(receiptData.patientId)) {
       res.status(400).json({ error: 'Invalid patient ID in receipt data.' });
@@ -47,8 +109,6 @@ export class ReceiptController {
 
       await patientService.updatePatient(patient.id, { outstanding: newFinalOutstanding.toFixed(2) });
 
-      // MODIFICATION: The payload now includes the definitive new outstanding balance calculated above.
-      // This ensures the email template receives the exact same value that was saved to the database.
       const emailPayload = {
         ...receiptData,
         outstanding: newFinalOutstanding.toFixed(2)
@@ -57,7 +117,17 @@ export class ReceiptController {
       const emailResult = await emailService.sendReceiptEmail(targetEmail, emailPayload, senderUserId);
 
       if (emailResult.success) {
-        res.status(200).json({ message: 'Receipt sent successfully!', messageId: emailResult.messageId });
+        const responseBody = { message: 'Receipt sent successfully!', messageId: emailResult.messageId };
+        const statusCode = 200;
+
+        // 3. Save the receipt's fingerprint to prevent future duplicates
+        await db.insert(idempotencyKeys).values({
+            key: receiptHash,
+            statusCode: statusCode,
+            responseBody: responseBody,
+        });
+
+        res.status(statusCode).json(responseBody);
       } else {
         console.error('Failed to send receipt email:', emailResult.error);
         res.status(500).json({ error: 'Failed to send receipt email.', details: emailResult.error });
@@ -68,10 +138,6 @@ export class ReceiptController {
     }
   };
 
-  /**
-   * Fetches all receipt data from Google Sheets (Sheet2) for revenue reporting.
-   * Accessible by 'owner' and 'staff' roles.
-   */
   getRevenueReport = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const allReceiptsData = await googleSheetsService.getReceiptsData();

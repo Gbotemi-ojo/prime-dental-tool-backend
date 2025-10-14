@@ -82,35 +82,41 @@ class BroadcastService {
     /**
      * Sends a custom email to all patients, owners, and staff.
      * @param subject The email subject.
-     * @param htmlMessage The HTML content of the email.
+     * @param messageBody The plain text or HTML content of the email.
      * @returns {Promise<{success: boolean, message: string}>} Result of the operation.
      */
-    async sendCustomBroadcast(subject: string, htmlMessage: string): Promise<{ success: boolean; message: string }> {
+    async sendCustomBroadcast(subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
         try {
-            const allPatients = await db.select({ email: patients.email }).from(patients);
-            const patientEmails = allPatients.map(p => p.email).filter((e): e is string => !!e);
-            
-            // This is an internal method from the emailService
+            const allPatients = await db.select({ email: patients.email, name: patients.name }).from(patients);
+            const patientRecipients = allPatients.filter((p): p is { email: string, name: string } => !!p.email && !!p.name);
+
+            if (patientRecipients.length === 0) {
+                return { success: true, message: 'No patients with valid email addresses found to send the broadcast to.' };
+            }
+
             const staffAndOwnerEmails = await (emailService as any)._getOwnerAndStaffEmails();
-            
-            const allRecipients = [...new Set([...patientEmails, ...staffAndOwnerEmails])];
+            const staffRecipients = staffAndOwnerEmails.map((email: string) => ({ email, name: 'Staff Member' }));
 
-            if (allRecipients.length === 0) {
-                return { success: false, message: 'No recipients found to send the broadcast to.' };
-            }
+            const allRecipients = [...patientRecipients, ...staffRecipients];
+            const uniqueRecipients = Array.from(new Set(allRecipients.map(r => r.email)))
+                .map(email => allRecipients.find(r => r.email === email)!);
 
-            const ownerEmail = process.env.OWNER_EMAIL || staffAndOwnerEmails[0] || '';
-            if (!ownerEmail) {
-                return { success: false, message: 'Cannot send broadcast without a primary recipient (OWNER_EMAIL is not set).' };
-            }
+            const emailPromises = uniqueRecipients.map(recipient =>
+                emailService.sendCustomEmail(recipient.email, {
+                    patientName: recipient.name,
+                    subject,
+                    messageBody,
+                })
+            );
 
-            const result = await emailService.sendEmail(ownerEmail, subject, htmlMessage, [], allRecipients);
+            const results = await Promise.allSettled(emailPromises);
+            const successfulSends = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+            const failedSends = results.length - successfulSends;
 
-            if (result.success) {
-                return { success: true, message: `Custom broadcast sent successfully to ${allRecipients.length} recipients.` };
-            } else {
-                throw new Error('Email transporter failed to send the broadcast.');
-            }
+            const message = `Custom broadcast finished. Sent successfully to ${successfulSends} recipients. Failed for ${failedSends}.`;
+
+            return { success: failedSends === 0, message };
+
         } catch (error: any) {
             console.error('Error sending custom broadcast:', error);
             return { success: false, message: 'A server error occurred while sending the custom broadcast.' };
@@ -118,21 +124,52 @@ class BroadcastService {
     }
     
     /**
+     * NEW: Sends a direct message to a single patient.
+     * @param patientId The ID of the patient.
+     * @param subject The email subject.
+     * @param messageBody The email content.
+     * @returns {Promise<{success: boolean, message: string}>} Result of the operation.
+     */
+    async sendDirectMessage(patientId: number, subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
+        try {
+            const [patient] = await db.select().from(patients).where(sql`id = ${patientId}`);
+
+            if (!patient) {
+                return { success: false, message: 'Patient not found.' };
+            }
+            if (!patient.email) {
+                return { success: false, message: 'This patient does not have an email address on file.' };
+            }
+
+            const result = await emailService.sendCustomEmail(patient.email, {
+                patientName: patient.name,
+                subject,
+                messageBody,
+            });
+
+            if (result.success) {
+                return { success: true, message: `Message sent successfully to ${patient.name}.` };
+            } else {
+                throw new Error('Email transporter failed to send the direct message.');
+            }
+        } catch (error: any) {
+            console.error(`Error sending direct message to patient ID ${patientId}:`, error);
+            return { success: false, message: 'A server error occurred while sending the direct message.' };
+        }
+    }
+
+    /**
      * Retrieves all unique patient phone numbers as a single comma-separated string.
      * @returns {Promise<{success: boolean, phoneNumbers: string | null, message?: string}>} The phone numbers string or an error message.
      */
     async getAllPhoneNumbers(): Promise<{ success: boolean; phoneNumbers: string | null; message?: string }> {
         try {
             const allPatients = await db.select({ phoneNumber: patients.phoneNumber }).from(patients);
-
             const phoneNumbers = allPatients
                 .map(p => p.phoneNumber)
                 .filter((pn): pn is string => !!pn && pn.trim() !== '');
-            
             const uniquePhoneNumbers = [...new Set(phoneNumbers)];
-            
             const commaSeparatedNumbers = uniquePhoneNumbers.join(', ');
-
             return { success: true, phoneNumbers: commaSeparatedNumbers };
         } catch (error: any) {
              console.error('Error fetching all phone numbers:', error);

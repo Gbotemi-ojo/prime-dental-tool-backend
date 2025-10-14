@@ -52,6 +52,14 @@ CREATE TABLE `hmo_providers` (
 	CONSTRAINT `hmo_providers_name_unique` UNIQUE(`name`)
 );
 --> statement-breakpoint
+CREATE TABLE `idempotency_keys` (
+	`key` varchar(255) NOT NULL,
+	`response_body` json NOT NULL,
+	`status_code` int NOT NULL,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `idempotency_keys_key` PRIMARY KEY(`key`)
+);
+--> statement-breakpoint
 CREATE TABLE `inventory_items` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,

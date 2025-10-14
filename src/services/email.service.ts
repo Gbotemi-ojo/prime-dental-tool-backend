@@ -118,7 +118,6 @@ export class EmailService {
         return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
     }
     
-    // ... (other reminder methods like sendScalingReminder) ...
     async sendScalingReminder(patientEmail: string, reminderData: { patientName: string; }, bcc?: string[]) {
         const template = await this.compileTemplate('scaling-reminder.html');
         const subject = `Important Recall Notice for Your Dental Health`;
@@ -155,11 +154,25 @@ export class EmailService {
     }
     
     /**
-     * NEW: Sends a birthday wish email.
-     * @param patientEmail Patient's email.
-     * @param data Template data.
+     * NEW: Sends a custom email to a patient.
+     * @param patientEmail The recipient's email address.
+     * @param data The data for the email, including patient name, subject, and body.
+     * @param bcc An array of email addresses for BCC.
      * @returns The result of the email sending operation.
      */
+    async sendCustomEmail(patientEmail: string, data: { patientName: string; subject: string; messageBody: string; }, bcc?: string[]) {
+        const template = await this.compileTemplate('custom-email.html');
+        const subject = data.subject; // Use the custom subject from the data
+        const htmlContent = template({
+            patientName: data.patientName,
+            subject: data.subject,
+            messageBody: data.messageBody,
+            currentYear: new Date().getFullYear(),
+            clinicEmail: process.env.EMAIL_FROM || 'info@yourclinic.com'
+        });
+        return await this.sendEmail(patientEmail, subject, htmlContent, [], bcc);
+    }
+
     async sendBirthdayWish(patientEmail: string, data: { patientName: string }) {
         const template = await this.compileTemplate('birthday-wish.html');
         const subject = `Happy Birthday, ${data.patientName}!`;
@@ -167,28 +180,16 @@ export class EmailService {
             patientName: data.patientName,
             currentYear: new Date().getFullYear(),
         });
-        // No BCC needed for individual birthday emails
         return await this.sendEmail(patientEmail, subject, htmlContent);
     }
 
-    // ... (sendInvoiceEmail and sendReceiptEmail methods) ...
     async sendInvoiceEmail(patientEmail: string, invoiceData: any, senderUserId: number) {
-        console.log("[EmailService Debug] invoiceData received (before processing):", invoiceData); // Debug log for incoming data
-
-        const template = await this.compileTemplate('invoice.html'); // Use compileTemplate
+        const template = await this.compileTemplate('invoice.html');
         const subject = `Invoice from Prime Dental Clinic`;
-
-        const servicesForTemplate = Array.isArray(invoiceData.items) ? invoiceData.items.map((item: any) => {
-            const calculatedTotalPrice = parseFloat(item.totalPrice || 0);
-            console.log(`[EmailService Debug] Item: ${item.description}, Raw Total Price: ${item.totalPrice}, Parsed Total Price: ${calculatedTotalPrice}, Formatted: ${calculatedTotalPrice.toFixed(2)}`);
-            return {
-                name: item.description,
-                totalPrice: calculatedTotalPrice.toFixed(2),
-            };
-        }) : [];
-
-        console.log('[EmailService Debug] servicesForTemplate (after formatting):', servicesForTemplate);
-
+        const servicesForTemplate = Array.isArray(invoiceData.items) ? invoiceData.items.map((item: any) => ({
+            name: item.description,
+            totalPrice: parseFloat(item.totalPrice || 0).toFixed(2),
+        })) : [];
         const templateData = {
             invoiceNumber: invoiceData.invoiceNumber || 'N/A',
             invoiceDate: invoiceData.invoiceDate || 'N/A',
@@ -203,34 +204,21 @@ export class EmailService {
             paymentMethod: invoiceData.paymentMethod || 'N/A',
             latestDentalRecord: invoiceData.latestDentalRecord || null,
         };
-
-        console.log('[EmailService Debug] templateData sent to Handlebars:', templateData);
-
         const htmlContent = template(templateData);
-
         const staffBccRecipients = await this._getOwnerAndStaffEmails();
-        const bccRecipients: string[] = [...staffBccRecipients];
-        if (this.ownerEmail) {
-            if (!bccRecipients.includes(this.ownerEmail)) {
-                bccRecipients.push(this.ownerEmail);
-            }
-        }
-        const validBccRecipients = bccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-
+        const validBccRecipients = staffBccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
         return await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
     }
     
     async sendReceiptEmail(patientEmail: string, receiptData: any, senderUserId: number) {
         const template = await this.compileTemplate('receipt.html');
         const subject = `Payment Receipt from Prime Dental Clinic - #${receiptData.receiptNumber}`;
-
         const itemsForReceiptTemplate = Array.isArray(receiptData.items) ? receiptData.items.map((item: any) => ({
             description: item.description,
             quantity: item.quantity,
-            unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice.toFixed(2) : parseFloat(item.unitPrice || 0).toFixed(2),
-            totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice.toFixed(2) : parseFloat(item.totalPrice || 0).toFixed(2),
+            unitPrice: parseFloat(item.unitPrice || 0).toFixed(2),
+            totalPrice: parseFloat(item.totalPrice || 0).toFixed(2),
         })) : [];
-
         const templateData = {
             receiptNumber: receiptData.receiptNumber || 'N/A',
             receiptDate: receiptData.receiptDate || 'N/A',
@@ -247,20 +235,10 @@ export class EmailService {
             latestDentalRecord: receiptData.latestDentalRecord || null,
             outstanding: parseFloat(receiptData.outstanding || 0) > 0 ? parseFloat(receiptData.outstanding || 0).toFixed(2) : null,
         };
-
         const htmlContent = template(templateData);
-
         const staffBccRecipients = await this._getOwnerAndStaffEmails();
-        const bccRecipients: string[] = [...staffBccRecipients];
-        if (this.ownerEmail) {
-            if (!bccRecipients.includes(this.ownerEmail)) {
-                bccRecipients.push(this.ownerEmail);
-            }
-        }
-        const validBccRecipients = bccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-
+        const validBccRecipients = staffBccRecipients.filter(email => email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
         const emailResult = await this.sendEmail(patientEmail, subject, htmlContent, [], validBccRecipients);
-
         if (emailResult.success) {
             try {
                 const receiptDataForSheet = {
@@ -275,16 +253,15 @@ export class EmailService {
                         totalPrice: parseFloat(item.totalPrice || 0)
                     })) : []
                 };
-
                 await googleSheetsService.appendReceipts(receiptDataForSheet);
                 console.log('Receipt data successfully logged to Google Sheet.');
             } catch (sheetError) {
                 console.error('Failed to log receipt data to Google Sheet:', sheetError);
             }
         }
-
         return emailResult;
     }
 }
 
 export const emailService = new EmailService();
+

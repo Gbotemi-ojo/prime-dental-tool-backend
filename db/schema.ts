@@ -194,3 +194,13 @@ export const hmoProviders = mysqlTable("hmo_providers", {
     id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull().unique(),
 });
+
+// Add this new table schema at the end of db/schema.ts
+
+// --- IDEMPOTENCY KEYS SCHEMA ---
+export const idempotencyKeys = mysqlTable("idempotency_keys", {
+    key: varchar("key", { length: 255 }).primaryKey(),
+    responseBody: json("response_body").notNull(),
+    statusCode: int("status_code").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
