@@ -1,7 +1,7 @@
 // src/controllers/patient.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { patientService } from '../services/patient.service';
-import { settingsService } from '../services/settings.service'; // IMPORTED
+import { settingsService } from '../services/settings.service'; 
 import { InferInsertModel } from 'drizzle-orm';
 import { patients, dentalRecords } from '../../db/schema';
 
@@ -15,7 +15,6 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
-  // --- METHODS THAT WERE MISSING ---
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
     const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (!name || !sex || !phoneNumber) {
@@ -127,12 +126,18 @@ export class PatientController {
     }
   };
 
-  // --- EXISTING AND NEW METHODS ---
+  // --- UPDATED: Get All Patients with Pagination ---
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
+      // Parse query parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const search = (req.query.search as string) || '';
+
       const settings = await settingsService.getSettings();
-      const allPatients = await patientService.getAllPatients(req.user, settings);
-      res.json(allPatients);
+      // Pass pagination params to service
+      const result = await patientService.getAllPatients(page, limit, search, req.user, settings);
+      res.json(result);
     } catch (error) {
       console.error('Error in getAllPatients controller:', error);
       res.status(500).json({ error: 'Server error fetching patients.' });

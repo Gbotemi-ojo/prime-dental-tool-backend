@@ -20,9 +20,9 @@ async function seed() {
 
     const db = drizzle(pool, { schema, mode: 'default' });
 
-    const OWNER_USERNAME = 'drtope';
-    const OWNER_PASSWORD = '12345678'; // Change this to a strong password for actual use!
-    const OWNER_EMAIL = 'dprimedentech@gmail.Com';
+    const OWNER_USERNAME = '';
+    const OWNER_PASSWORD = ''; // Change this to a strong password for actual use!
+    const OWNER_EMAIL = '';
 
     try {
         // Check if an owner already exists to prevent duplicate entries

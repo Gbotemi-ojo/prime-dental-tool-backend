@@ -1,4 +1,4 @@
-import { eq, ne, and, desc, isNull, gte, sql, or } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, gte, sql, or, like } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -146,18 +146,85 @@ export class PatientService {
         });
     }
 
-    async getAllPatients(user?: AuthenticatedUser, settings?: any) {
-        const allPatientsData = await db.query.patients.findMany({
-            with: { familyHead: true, familyMembers: true, dentalRecords: { orderBy: [desc(dentalRecords.createdAt)], limit: 1, with: { doctor: true } }, dailyVisits: true },
-            orderBy: [desc(patients.createdAt)],
-        });
-        const processedPatients = allPatientsData.map(p => {
-            const latestRecord = p.dentalRecords && p.dentalRecords.length > 0 ? p.dentalRecords[0] : null;
-            const { dentalRecords, ...patientData } = p;
-            return { ...patientData, latestTreatmentDone: latestRecord?.treatmentDone, latestTreatmentPlan: latestRecord?.treatmentPlan, latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis, doctorName: latestRecord?.doctor?.username };
-        });
-        const shouldSeeContact = canUserSeeContactDetails(user, settings);
-        return shouldSeeContact ? processedPatients : processedPatients.map(p => stripContactInfo(p));
+    // --- UPDATED: Get All Patients with Pagination & Search ---
+    async getAllPatients(page: number = 1, limit: number = 10, searchTerm: string = '', user?: AuthenticatedUser, settings?: any) {
+      const offset = (page - 1) * limit;
+      
+      // 1. Build Search Condition
+      let whereClause = undefined;
+      if (searchTerm) {
+          whereClause = or(
+              like(patients.name, `%${searchTerm}%`),
+              like(patients.phoneNumber, `%${searchTerm}%`),
+              like(patients.email, `%${searchTerm}%`)
+          );
+      }
+
+      // 2. Get Total Count (Optimization: distinct count)
+      const countResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(patients)
+          .where(whereClause);
+      const totalPatients = countResult[0].count;
+
+      // 3. Get Paginated Data (Lightweight Query)
+      const allPatientsData = await db.query.patients.findMany({
+          where: whereClause,
+          limit: limit,
+          offset: offset,
+          with: { 
+              familyHead: true, 
+              familyMembers: true, 
+              dentalRecords: { 
+                  orderBy: [desc(dentalRecords.createdAt)], 
+                  limit: 1, 
+                  columns: {
+                      id: true,
+                      treatmentDone: true,
+                      treatmentPlan: true,
+                      provisionalDiagnosis: true,
+                      createdAt: true,
+                      doctorId: true
+                  },
+                  with: { 
+                      doctor: { columns: { username: true } } 
+                  } 
+              }, 
+              dailyVisits: { 
+                  columns: { id: true, checkInTime: true } 
+              } 
+          },
+          orderBy: [desc(patients.createdAt)],
+      });
+      
+      const processedPatients = allPatientsData.map(p => {
+          const hasDentalRecords = p.dentalRecords && p.dentalRecords.length > 0;
+          const latestRecord = hasDentalRecords ? p.dentalRecords[0] : null;
+          
+          const { dentalRecords, ...patientData } = p;
+          
+          return { 
+              ...patientData, 
+              latestTreatmentDone: latestRecord?.treatmentDone, 
+              latestTreatmentPlan: latestRecord?.treatmentPlan, 
+              latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis, 
+              doctorName: latestRecord?.doctor?.username,
+              hasDentalRecords: hasDentalRecords 
+          };
+      });
+
+      const shouldSeeContact = canUserSeeContactDetails(user, settings);
+      const finalData = shouldSeeContact ? processedPatients : processedPatients.map(p => stripContactInfo(p));
+
+      return {
+          data: finalData,
+          meta: {
+              total: totalPatients,
+              page,
+              limit,
+              totalPages: Math.ceil(totalPatients / limit)
+          }
+      };
     }
 
     async getPatientById(patientId: number, user?: AuthenticatedUser, settings?: any) {
@@ -263,13 +330,6 @@ export class PatientService {
         }
     }
 
-    /**
-     * NEW: Sends a custom email to a patient.
-     * @param patientId The ID of the patient.
-     * @param subject The email subject.
-     * @param message The email body content.
-     * @returns A result object indicating success or failure.
-     */
     async sendCustomEmail(patientId: number, subject: string, message: string) {
         const patient = await this._getPatientWithContactInfoForInternalUse(patientId);
         if (!patient) { return { success: false, message: "Patient not found." }; }

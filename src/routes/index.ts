@@ -10,7 +10,9 @@ import xrayRoutes from './xray.routes';
 import settingsRoutes from './settings.routes'; // Import settings routes
 import billingRoutes from './billing.routes'
 import dataAnalysisRoutes from './data-analysis.routes';
-import broadcastRoutes from './broadcast.routes'
+import broadcastRoutes from './broadcast.routes';
+import websiteBookingRoutes from './websiteBooking.routes';
+
 
 const router = Router();
 
@@ -31,5 +33,6 @@ router.use('/settings', settingsRoutes); // Add settings routes
 router.use('/billing', billingRoutes);
 router.use('/analytics', dataAnalysisRoutes);
 router.use('/broadcast', broadcastRoutes);
+router.use('/website-bookings', websiteBookingRoutes);
 
 export default router;

@@ -204,3 +204,20 @@ export const idempotencyKeys = mysqlTable("idempotency_keys", {
     statusCode: int("status_code").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Mirrors the patient table for demographic data, but for external web requests
+export const websiteBookings = mysqlTable("website_bookings", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    sex: varchar("sex", { length: 50 }).notNull(),
+    dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(), // Vital for contact
+    email: varchar("email", { length: 255 }),
+    address: text("address"),
+    hmo: json("hmo"), // Can capture HMO details if the form asks for it
+    requestedAppointmentDate: timestamp("requested_appointment_date", { mode: 'date' }), // Maps to nextAppointmentDate
+    complaint: text("complaint"), // Useful for knowing why they are booking
+    status: varchar("status", { length: 20, enum: ['pending', 'confirmed', 'rejected', 'converted'] }).default('pending').notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
