@@ -15,6 +15,19 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
+  // --- NEW: Scheduled Appointments Endpoint ---
+  getScheduledPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const date = req.query.date as string | undefined;
+        const settings = await settingsService.getSettings();
+        const patients = await patientService.getScheduledPatients(date, req.user, settings);
+        res.json(patients);
+    } catch (error) {
+        console.error('Error fetching scheduled patients:', error);
+        res.status(500).json({ error: 'Server error fetching schedule.' });
+    }
+  }
+
   submitGuestPatient = async (req: Request, res: Response): Promise<void> => {
     const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (!name || !sex || !phoneNumber) {

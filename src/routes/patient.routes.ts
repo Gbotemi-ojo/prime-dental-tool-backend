@@ -16,6 +16,9 @@ router.get('/doctor-schedule/:doctorId', authenticateToken, authorizeRoles(['own
 router.get('/doctor-schedule', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.getAllPatientsForScheduling);
 router.put('/:patientId/assign-doctor', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.assignDoctor);
 
+// --- NEW: Scheduled Appointments Route (Must be before /:id) ---
+router.get('/scheduled', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getScheduledPatients);
+
 // --- GENERAL PATIENT DATA ROUTES ---
 router.get('/', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getAllPatients);
 router.get('/:id', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getPatientById);

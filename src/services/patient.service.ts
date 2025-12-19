@@ -1,4 +1,4 @@
-import { eq, ne, and, desc, isNull, gte, sql, or, like, inArray } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, isNotNull, gte, sql, or, like, inArray, asc } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -146,67 +146,73 @@ export class PatientService {
         });
     }
 
+    // --- NEW: Scalable Appointment Fetching ---
+    async getScheduledPatients(date?: string, user?: AuthenticatedUser, settings?: any) {
+        let conditions: ReturnType<typeof and> | ReturnType<typeof isNotNull> | undefined = undefined;
+
+        if (date) {
+            // If date provided, exact match
+            conditions = and(isNotNull(patients.nextAppointmentDate), sql`DATE(${patients.nextAppointmentDate}) = ${date}`);
+        } else {
+            // If no date (All), get all non-null appointments
+            conditions = isNotNull(patients.nextAppointmentDate);
+        }
+
+        const scheduledPatients = await db.query.patients.findMany({
+            where: conditions,
+            orderBy: [asc(patients.nextAppointmentDate)],
+            with: {
+                dentalRecords: {
+                    orderBy: [desc(dentalRecords.createdAt)],
+                    limit: 1,
+                    columns: { treatmentDone: true, treatmentPlan: true, provisionalDiagnosis: true }
+                }
+            }
+        });
+
+        // Add helper fields and strip info
+        const processed = scheduledPatients.map(p => {
+            const latestRecord = p.dentalRecords && p.dentalRecords.length > 0 ? p.dentalRecords[0] : null;
+            const { dentalRecords: _, ...patientData } = p;
+            return {
+                ...patientData,
+                latestTreatmentDone: latestRecord?.treatmentDone,
+                latestTreatmentPlan: latestRecord?.treatmentPlan,
+                latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis
+            };
+        });
+
+        const shouldSeeContact = canUserSeeContactDetails(user, settings);
+        return shouldSeeContact ? processed : processed.map(p => stripContactInfo(p));
+    }
+
     // --- UPDATED: Get All Patients with Pagination, Search & Date Filter ---
     async getAllPatients(page: number = 1, limit: number = 10, searchTerm: string = '', filterDate: string = '', user?: AuthenticatedUser, settings?: any) {
       const offset = (page - 1) * limit;
       
-      // 1. Handle Date Filtering (Server-Side)
       let datePatientIds: number[] | null = null;
       
       if (filterDate) {
-          // A. Get patients who visited on this date
-          const visits = await db.select({ pid: dailyVisits.patientId })
-              .from(dailyVisits)
-              .where(sql`DATE(${dailyVisits.checkInTime}) = ${filterDate}`);
-          
-          // B. Get patients who registered on this date
-          const newRegistrations = await db.select({ pid: patients.id })
-              .from(patients)
-              .where(sql`DATE(${patients.createdAt}) = ${filterDate}`);
-
-          // Combine Unique IDs
-          const combinedIds = new Set([
-              ...visits.map(v => v.pid), 
-              ...newRegistrations.map(p => p.pid)
-          ]);
-          
+          const visits = await db.select({ pid: dailyVisits.patientId }).from(dailyVisits).where(sql`DATE(${dailyVisits.checkInTime}) = ${filterDate}`);
+          const newRegistrations = await db.select({ pid: patients.id }).from(patients).where(sql`DATE(${patients.createdAt}) = ${filterDate}`);
+          const combinedIds = new Set([...visits.map(v => v.pid), ...newRegistrations.map(p => p.pid)]);
           datePatientIds = Array.from(combinedIds);
-
-          // If date is selected but no records found, return empty immediately
           if (datePatientIds.length === 0) {
-               return {
-                  data: [],
-                  meta: { total: 0, page, limit, totalPages: 0 }
-              };
+               return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
           }
       }
 
-      // 2. Build Where Clause
       let whereClause = undefined;
-      const searchCondition = searchTerm ? or(
-          like(patients.name, `%${searchTerm}%`),
-          like(patients.phoneNumber, `%${searchTerm}%`),
-          like(patients.email, `%${searchTerm}%`)
-      ) : undefined;
-
+      const searchCondition = searchTerm ? or(like(patients.name, `%${searchTerm}%`), like(patients.phoneNumber, `%${searchTerm}%`), like(patients.email, `%${searchTerm}%`)) : undefined;
       const dateCondition = datePatientIds ? inArray(patients.id, datePatientIds) : undefined;
 
-      if (searchCondition && dateCondition) {
-          whereClause = and(searchCondition, dateCondition);
-      } else if (searchCondition) {
-          whereClause = searchCondition;
-      } else if (dateCondition) {
-          whereClause = dateCondition;
-      }
+      if (searchCondition && dateCondition) { whereClause = and(searchCondition, dateCondition); } 
+      else if (searchCondition) { whereClause = searchCondition; } 
+      else if (dateCondition) { whereClause = dateCondition; }
 
-      // 3. Get Total Count
-      const countResult = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(patients)
-          .where(whereClause);
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(patients).where(whereClause);
       const totalPatients = countResult[0].count;
 
-      // 4. Get Paginated Data
       const allPatientsData = await db.query.patients.findMany({
           where: whereClause,
           limit: limit,
@@ -214,24 +220,8 @@ export class PatientService {
           with: { 
               familyHead: true, 
               familyMembers: true, 
-              dentalRecords: { 
-                  orderBy: [desc(dentalRecords.createdAt)], 
-                  limit: 1, 
-                  columns: {
-                      id: true,
-                      treatmentDone: true,
-                      treatmentPlan: true,
-                      provisionalDiagnosis: true,
-                      createdAt: true,
-                      doctorId: true
-                  },
-                  with: { 
-                      doctor: { columns: { username: true } } 
-                  } 
-              }, 
-              dailyVisits: { 
-                  columns: { id: true, checkInTime: true } 
-              } 
+              dentalRecords: { orderBy: [desc(dentalRecords.createdAt)], limit: 1, columns: { id: true, treatmentDone: true, treatmentPlan: true, provisionalDiagnosis: true, createdAt: true, doctorId: true }, with: { doctor: { columns: { username: true } } } }, 
+              dailyVisits: { columns: { id: true, checkInTime: true } } 
           },
           orderBy: [desc(patients.createdAt)],
       });
@@ -239,9 +229,7 @@ export class PatientService {
       const processedPatients = allPatientsData.map(p => {
           const hasDentalRecords = p.dentalRecords && p.dentalRecords.length > 0;
           const latestRecord = hasDentalRecords ? p.dentalRecords[0] : null;
-          
-          const { dentalRecords, ...patientData } = p;
-          
+          const { dentalRecords: _, ...patientData } = p;
           return { 
               ...patientData, 
               latestTreatmentDone: latestRecord?.treatmentDone, 
@@ -257,12 +245,7 @@ export class PatientService {
 
       return {
           data: finalData,
-          meta: {
-              total: totalPatients,
-              page,
-              limit,
-              totalPages: Math.ceil(totalPatients / limit)
-          }
+          meta: { total: totalPatients, page, limit, totalPages: Math.ceil(totalPatients / limit) }
       };
     }
 
