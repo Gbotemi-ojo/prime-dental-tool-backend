@@ -68,6 +68,17 @@ const stripContactInfo = (patient: any): any | null => {
 export class PatientService {
   constructor() {}
   
+  // --- NEW: Get Debtors Only (Efficient) ---
+  async getDebtors() {
+      // Fetch patients where outstanding > 0
+      const debtors = await db.select()
+          .from(patients)
+          .where(sql`${patients.outstanding} > 0`)
+          .orderBy(desc(patients.outstanding));
+      
+      return debtors;
+  }
+
   async addGuestPatient(patientData: NewFamilyHeadData, sendReceipt: boolean = true): Promise<PatientSelect> {
         const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = patientData;
         const existingPatient = await db.select().from(patients).where(eq(patients.phoneNumber, phoneNumber)).limit(1);
@@ -146,18 +157,11 @@ export class PatientService {
         });
     }
 
-    // --- NEW: Scalable Appointment Fetching ---
     async getScheduledPatients(date?: string, user?: AuthenticatedUser, settings?: any) {
-        let conditions: ReturnType<typeof and> | ReturnType<typeof isNotNull> | undefined = undefined;
-
+        let conditions: ReturnType<typeof and> | ReturnType<typeof isNotNull> = isNotNull(patients.nextAppointmentDate);
         if (date) {
-            // If date provided, exact match
             conditions = and(isNotNull(patients.nextAppointmentDate), sql`DATE(${patients.nextAppointmentDate}) = ${date}`);
-        } else {
-            // If no date (All), get all non-null appointments
-            conditions = isNotNull(patients.nextAppointmentDate);
         }
-
         const scheduledPatients = await db.query.patients.findMany({
             where: conditions,
             orderBy: [asc(patients.nextAppointmentDate)],
@@ -169,8 +173,6 @@ export class PatientService {
                 }
             }
         });
-
-        // Add helper fields and strip info
         const processed = scheduledPatients.map(p => {
             const latestRecord = p.dentalRecords && p.dentalRecords.length > 0 ? p.dentalRecords[0] : null;
             const { dentalRecords: _, ...patientData } = p;
@@ -181,17 +183,13 @@ export class PatientService {
                 latestProvisionalDiagnosis: latestRecord?.provisionalDiagnosis
             };
         });
-
         const shouldSeeContact = canUserSeeContactDetails(user, settings);
         return shouldSeeContact ? processed : processed.map(p => stripContactInfo(p));
     }
 
-    // --- UPDATED: Get All Patients with Pagination, Search & Date Filter ---
     async getAllPatients(page: number = 1, limit: number = 10, searchTerm: string = '', filterDate: string = '', user?: AuthenticatedUser, settings?: any) {
       const offset = (page - 1) * limit;
-      
       let datePatientIds: number[] | null = null;
-      
       if (filterDate) {
           const visits = await db.select({ pid: dailyVisits.patientId }).from(dailyVisits).where(sql`DATE(${dailyVisits.checkInTime}) = ${filterDate}`);
           const newRegistrations = await db.select({ pid: patients.id }).from(patients).where(sql`DATE(${patients.createdAt}) = ${filterDate}`);
@@ -201,18 +199,15 @@ export class PatientService {
                return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
           }
       }
-
       let whereClause = undefined;
       const searchCondition = searchTerm ? or(like(patients.name, `%${searchTerm}%`), like(patients.phoneNumber, `%${searchTerm}%`), like(patients.email, `%${searchTerm}%`)) : undefined;
       const dateCondition = datePatientIds ? inArray(patients.id, datePatientIds) : undefined;
-
       if (searchCondition && dateCondition) { whereClause = and(searchCondition, dateCondition); } 
       else if (searchCondition) { whereClause = searchCondition; } 
       else if (dateCondition) { whereClause = dateCondition; }
-
+      
       const countResult = await db.select({ count: sql<number>`count(*)` }).from(patients).where(whereClause);
       const totalPatients = countResult[0].count;
-
       const allPatientsData = await db.query.patients.findMany({
           where: whereClause,
           limit: limit,
@@ -225,7 +220,6 @@ export class PatientService {
           },
           orderBy: [desc(patients.createdAt)],
       });
-      
       const processedPatients = allPatientsData.map(p => {
           const hasDentalRecords = p.dentalRecords && p.dentalRecords.length > 0;
           const latestRecord = hasDentalRecords ? p.dentalRecords[0] : null;
@@ -239,16 +233,15 @@ export class PatientService {
               hasDentalRecords: hasDentalRecords 
           };
       });
-
       const shouldSeeContact = canUserSeeContactDetails(user, settings);
       const finalData = shouldSeeContact ? processedPatients : processedPatients.map(p => stripContactInfo(p));
-
       return {
           data: finalData,
           meta: { total: totalPatients, page, limit, totalPages: Math.ceil(totalPatients / limit) }
       };
     }
 
+    // ... (Keep existing methods: getPatientById, _getPatientWithContactInfoForInternalUse, updatePatient, scheduleNextAppointment, sendAppointmentReminder, sendProcedureSpecificReminder, sendCustomEmail, createDentalRecord, getDentalRecordsByPatientId, getSpecificDentalRecordForPatient, getDentalRecordById, updateDentalRecord, deleteDentalRecord, getPatientsForDoctor, getAllPatientsForScheduling, assignDoctorToPatient, _sendNewPatientNotifications, _sendReturningPatientNotifications)
     async getPatientById(patientId: number, user?: AuthenticatedUser, settings?: any) {
         const patient = await db.query.patients.findFirst({
             where: eq(patients.id, patientId),

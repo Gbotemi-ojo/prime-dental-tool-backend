@@ -16,7 +16,10 @@ router.get('/doctor-schedule/:doctorId', authenticateToken, authorizeRoles(['own
 router.get('/doctor-schedule', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.getAllPatientsForScheduling);
 router.put('/:patientId/assign-doctor', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.assignDoctor);
 
-// --- NEW: Scheduled Appointments Route (Must be before /:id) ---
+// --- SPECIALIZED DATA ROUTES (Must be before /:id) ---
+// Route for Debtors Revenue Report
+router.get('/debtors', authenticateToken, authorizeRoles(['owner', 'staff']), patientController.getDebtors);
+// Route for Appointments Page
 router.get('/scheduled', authenticateToken, authorizeRoles(['owner', 'staff', 'nurse', 'doctor']), patientController.getScheduledPatients);
 
 // --- GENERAL PATIENT DATA ROUTES ---

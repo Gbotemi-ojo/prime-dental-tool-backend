@@ -15,6 +15,17 @@ interface AuthenticatedRequest extends Request {
 export class PatientController {
   constructor() {}
 
+  // --- NEW: Debtors Endpoint ---
+  getDebtors = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const debtors = await patientService.getDebtors();
+        res.json(debtors);
+    } catch (error) {
+        console.error('Error fetching debtors:', error);
+        res.status(500).json({ error: 'Server error fetching debtors.' });
+    }
+  }
+
   // --- NEW: Scheduled Appointments Endpoint ---
   getScheduledPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
