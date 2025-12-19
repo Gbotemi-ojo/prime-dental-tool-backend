@@ -126,17 +126,19 @@ export class PatientController {
     }
   };
 
-  // --- UPDATED: Get All Patients with Pagination ---
+  // --- UPDATED: Get All Patients with Pagination & Date Filtering ---
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       // Parse query parameters
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const search = (req.query.search as string) || '';
+      // NEW: Extract date filter
+      const date = (req.query.date as string) || '';
 
       const settings = await settingsService.getSettings();
-      // Pass pagination params to service
-      const result = await patientService.getAllPatients(page, limit, search, req.user, settings);
+      // Pass pagination AND date params to service
+      const result = await patientService.getAllPatients(page, limit, search, date, req.user, settings);
       res.json(result);
     } catch (error) {
       console.error('Error in getAllPatients controller:', error);

@@ -1,3 +1,29 @@
+CREATE TABLE `daily_reports` (
+	`id` serial AUTO_INCREMENT NOT NULL,
+	`report_date` timestamp NOT NULL,
+	`submitted_by` int,
+	`receptionist_name` varchar(255),
+	`opening_time` varchar(20),
+	`closing_time` varchar(20),
+	`new_patients_count` int DEFAULT 0,
+	`returning_patients_count` int DEFAULT 0,
+	`hmo_patients_count` int DEFAULT 0,
+	`financial_transactions` json,
+	`cash_total` decimal(12,2) DEFAULT '0.00',
+	`pos_total` decimal(12,2) DEFAULT '0.00',
+	`transfer_total` decimal(12,2) DEFAULT '0.00',
+	`grand_total` decimal(12,2) DEFAULT '0.00',
+	`expenses_breakdown` json,
+	`expenses_total` decimal(12,2) DEFAULT '0.00',
+	`outstanding_balances` json,
+	`observations` text,
+	`follow_up_reminders` text,
+	`closing_notes` text,
+	`patient_activity_log` json,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `daily_reports_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
 CREATE TABLE `daily_visits` (
 	`id` serial AUTO_INCREMENT NOT NULL,
 	`patient_id` int NOT NULL,
@@ -159,6 +185,7 @@ CREATE TABLE `website_bookings` (
 	CONSTRAINT `website_bookings_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
+ALTER TABLE `daily_reports` ADD CONSTRAINT `daily_reports_submitted_by_users_id_fk` FOREIGN KEY (`submitted_by`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `daily_visits` ADD CONSTRAINT `daily_visits_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_patient_id_patients_id_fk` FOREIGN KEY (`patient_id`) REFERENCES `patients`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `dental_records` ADD CONSTRAINT `dental_records_doctor_id_users_id_fk` FOREIGN KEY (`doctor_id`) REFERENCES `users`(`id`) ON DELETE set null ON UPDATE no action;--> statement-breakpoint

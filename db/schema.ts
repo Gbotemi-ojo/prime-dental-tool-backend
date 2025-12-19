@@ -221,3 +221,55 @@ export const websiteBookings = mysqlTable("website_bookings", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
+
+export const dailyReports = mysqlTable("daily_reports", {
+    id: serial("id").primaryKey(),
+    date: timestamp("report_date", { mode: 'date' }).notNull(),
+    submittedBy: int("submitted_by").references(() => users.id, { onDelete: 'set null' }),
+    receptionistName: varchar("receptionist_name", { length: 255 }), // In case they want to type a specific name
+    
+    // Operations
+    openingTime: varchar("opening_time", { length: 20 }),
+    closingTime: varchar("closing_time", { length: 20 }),
+    
+    // Counts
+    newPatientsCount: int("new_patients_count").default(0),
+    returningPatientsCount: int("returning_patients_count").default(0),
+    hmoPatientsCount: int("hmo_patients_count").default(0),
+    
+    // Financials (JSON for flexibility)
+    // Structure: [{ patient: string, description: string, amount: number, method: 'cash'|'pos'|'transfer' }]
+    financialTransactions: json("financial_transactions"),
+    cashTotal: decimal("cash_total", { precision: 12, scale: 2 }).default('0.00'),
+    posTotal: decimal("pos_total", { precision: 12, scale: 2 }).default('0.00'),
+    transferTotal: decimal("transfer_total", { precision: 12, scale: 2 }).default('0.00'),
+    grandTotal: decimal("grand_total", { precision: 12, scale: 2 }).default('0.00'),
+    
+    // Expenses
+    // Structure: [{ description: string, amount: number }]
+    expensesBreakdown: json("expenses_breakdown"),
+    expensesTotal: decimal("expenses_total", { precision: 12, scale: 2 }).default('0.00'),
+    
+    // Outstanding
+    // Structure: [{ patient: string, amount: number }]
+    outstandingBalances: json("outstanding_balances"),
+    
+    // Narrative Sections
+    observations: text("observations"),
+    followUpReminders: text("follow_up_reminders"),
+    closingNotes: text("closing_notes"),
+    
+    // Clinical Activity Log (Summary #2)
+    // Structure: [{ patient: string, summary: string }]
+    patientActivityLog: json("patient_activity_log"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Add relation to users table relations if needed
+export const dailyReportRelations = relations(dailyReports, ({ one }) => ({
+    submitter: one(users, {
+        fields: [dailyReports.submittedBy],
+        references: [users.id],
+    }),
+}));

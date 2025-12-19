@@ -1,4 +1,4 @@
-import { eq, ne, and, desc, isNull, gte, sql, or, like } from 'drizzle-orm';
+import { eq, ne, and, desc, isNull, gte, sql, or, like, inArray } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -146,28 +146,67 @@ export class PatientService {
         });
     }
 
-    // --- UPDATED: Get All Patients with Pagination & Search ---
-    async getAllPatients(page: number = 1, limit: number = 10, searchTerm: string = '', user?: AuthenticatedUser, settings?: any) {
+    // --- UPDATED: Get All Patients with Pagination, Search & Date Filter ---
+    async getAllPatients(page: number = 1, limit: number = 10, searchTerm: string = '', filterDate: string = '', user?: AuthenticatedUser, settings?: any) {
       const offset = (page - 1) * limit;
       
-      // 1. Build Search Condition
-      let whereClause = undefined;
-      if (searchTerm) {
-          whereClause = or(
-              like(patients.name, `%${searchTerm}%`),
-              like(patients.phoneNumber, `%${searchTerm}%`),
-              like(patients.email, `%${searchTerm}%`)
-          );
+      // 1. Handle Date Filtering (Server-Side)
+      let datePatientIds: number[] | null = null;
+      
+      if (filterDate) {
+          // A. Get patients who visited on this date
+          const visits = await db.select({ pid: dailyVisits.patientId })
+              .from(dailyVisits)
+              .where(sql`DATE(${dailyVisits.checkInTime}) = ${filterDate}`);
+          
+          // B. Get patients who registered on this date
+          const newRegistrations = await db.select({ pid: patients.id })
+              .from(patients)
+              .where(sql`DATE(${patients.createdAt}) = ${filterDate}`);
+
+          // Combine Unique IDs
+          const combinedIds = new Set([
+              ...visits.map(v => v.pid), 
+              ...newRegistrations.map(p => p.pid)
+          ]);
+          
+          datePatientIds = Array.from(combinedIds);
+
+          // If date is selected but no records found, return empty immediately
+          if (datePatientIds.length === 0) {
+               return {
+                  data: [],
+                  meta: { total: 0, page, limit, totalPages: 0 }
+              };
+          }
       }
 
-      // 2. Get Total Count (Optimization: distinct count)
+      // 2. Build Where Clause
+      let whereClause = undefined;
+      const searchCondition = searchTerm ? or(
+          like(patients.name, `%${searchTerm}%`),
+          like(patients.phoneNumber, `%${searchTerm}%`),
+          like(patients.email, `%${searchTerm}%`)
+      ) : undefined;
+
+      const dateCondition = datePatientIds ? inArray(patients.id, datePatientIds) : undefined;
+
+      if (searchCondition && dateCondition) {
+          whereClause = and(searchCondition, dateCondition);
+      } else if (searchCondition) {
+          whereClause = searchCondition;
+      } else if (dateCondition) {
+          whereClause = dateCondition;
+      }
+
+      // 3. Get Total Count
       const countResult = await db
           .select({ count: sql<number>`count(*)` })
           .from(patients)
           .where(whereClause);
       const totalPatients = countResult[0].count;
 
-      // 3. Get Paginated Data (Lightweight Query)
+      // 4. Get Paginated Data
       const allPatientsData = await db.query.patients.findMany({
           where: whereClause,
           limit: limit,
