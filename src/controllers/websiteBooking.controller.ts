@@ -3,11 +3,9 @@ import { websiteBookingService } from '../services/websiteBooking.service';
 
 export class WebsiteBookingController {
 
-    // PUBLIC: Endpoint for the external website to hit
     submitBooking = async (req: Request, res: Response): Promise<void> => {
         const { name, sex, dateOfBirth, phoneNumber, email, address, hmo, requestedAppointmentDate, complaint } = req.body;
 
-        // Basic validation matching your patient requirements
         if (!name || !phoneNumber) {
             res.status(400).json({ error: 'Name and phone number are required.' });
             return;
@@ -20,8 +18,7 @@ export class WebsiteBookingController {
                 requestedAppointmentDate: requestedAppointmentDate ? new Date(requestedAppointmentDate) : null,
             };
             
-            // @ts-ignore - Ignoring type strictness for partial insert for brevity
-            const newBooking = await websiteBookingService.createBooking(bookingData);
+            const newBooking = await websiteBookingService.createBooking(bookingData as any);
             
             res.status(201).json({ message: 'Booking request submitted successfully.', bookingId: newBooking.id });
         } catch (error: any) {
@@ -30,7 +27,6 @@ export class WebsiteBookingController {
         }
     };
 
-    // PROTECTED: For your dashboard
     getAllBookings = async (req: Request, res: Response): Promise<void> => {
         try {
             const bookings = await websiteBookingService.getAllBookings();
@@ -41,7 +37,6 @@ export class WebsiteBookingController {
         }
     };
 
-    // PROTECTED: Update status
     updateStatus = async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
         const { status } = req.body;
@@ -58,7 +53,19 @@ export class WebsiteBookingController {
             console.error('Error updating booking status:', error);
             res.status(500).json({ error: 'Failed to update status.' });
         }
-    }
+    };
+
+    // NEW: Method for dashboard reminder trigger
+    sendReminder = async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+        try {
+            const result = await websiteBookingService.sendManualReminder(Number(id));
+            res.json(result);
+        } catch (error: any) {
+            console.error('Error sending reminder:', error);
+            res.status(500).json({ error: error.message || 'Failed to send reminder email.' });
+        }
+    };
 }
 
 export const websiteBookingController = new WebsiteBookingController();
