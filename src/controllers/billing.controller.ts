@@ -24,7 +24,8 @@ export class BillingController {
     };
     
     updateServiceItem = async (req: Request, res: Response): Promise<void> => {
-        const id = parseInt(req.params.id);
+        // FIX: Cast as string
+        const id = parseInt(req.params.id as string);
         try {
             await billingService.updateServiceItem(id, req.body);
             res.status(200).json({ message: 'Service item updated successfully.' });
@@ -33,9 +34,10 @@ export class BillingController {
         }
     };
 
-        // NEW: Handle service item deletion
+    // NEW: Handle service item deletion
     deleteServiceItem = async (req: Request, res: Response): Promise<void> => {
-        const id = parseInt(req.params.id);
+        // FIX: Cast as string
+        const id = parseInt(req.params.id as string);
         try {
             await billingService.deleteServiceItem(id);
             res.status(200).json({ message: 'Service item deleted successfully.' });
@@ -55,7 +57,8 @@ export class BillingController {
     };
 
     updateHmoProvider = async (req: Request, res: Response): Promise<void> => {
-        const id = parseInt(req.params.id);
+        // FIX: Cast as string
+        const id = parseInt(req.params.id as string);
         try {
             await billingService.updateHmoProvider(id, req.body);
             res.status(200).json({ message: 'HMO provider updated successfully.' });
@@ -64,8 +67,9 @@ export class BillingController {
         }
     };
 
-        deleteHmoProvider = async (req: Request, res: Response): Promise<void> => {
-        const id = parseInt(req.params.id);
+    deleteHmoProvider = async (req: Request, res: Response): Promise<void> => {
+        // FIX: Cast as string
+        const id = parseInt(req.params.id as string);
         try {
             await billingService.deleteHmoProvider(id);
             res.status(200).json({ message: 'HMO provider deleted successfully.' });

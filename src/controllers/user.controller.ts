@@ -81,7 +81,8 @@ export class UserController {
   };
 
   getUserById = async (req: Request, res: Response): Promise<void> => {
-    const userId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const userId = parseInt(req.params.id as string);
     if (isNaN(userId)) {
       res.status(400).json({ error: 'Invalid user ID.' });
       return;
@@ -101,7 +102,8 @@ export class UserController {
   };
 
   updateUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const userId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const userId = parseInt(req.params.id as string);
     const updateData = req.body;
     const currentLoggedInUserId = req.user!.userId;
 
@@ -120,7 +122,8 @@ export class UserController {
   };
 
   updateUserStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const userId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const userId = parseInt(req.params.id as string);
     const { isActive } = req.body;
     const currentLoggedInUserId = req.user!.userId;
 
@@ -139,7 +142,8 @@ export class UserController {
   };
 
   deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const userId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const userId = parseInt(req.params.id as string);
     const currentLoggedInUserId = req.user!.userId;
 
     if (isNaN(userId)) {

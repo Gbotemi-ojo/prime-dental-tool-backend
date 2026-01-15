@@ -23,7 +23,8 @@ export class InventoryController {
   }
 
   getItemById = async (req: Request, res: Response): Promise<void> => {
-    const itemId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const itemId = parseInt(req.params.id as string);
     if (isNaN(itemId)) {
       res.status(400).json({ error: 'Invalid item ID.' });
       return;
@@ -90,7 +91,8 @@ export class InventoryController {
   }
 
   updateItem = async (req: Request, res: Response): Promise<void> => {
-    const itemId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const itemId = parseInt(req.params.id as string);
     const { name, description, unitOfMeasure, reorderLevel, costPerUnit, supplier, category } = req.body;
 
     if (isNaN(itemId)) {
@@ -124,7 +126,8 @@ export class InventoryController {
   }
 
   deleteItem = async (req: Request, res: Response): Promise<void> => {
-    const itemId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const itemId = parseInt(req.params.id as string);
 
     if (isNaN(itemId)) {
       res.status(400).json({ error: 'Invalid item ID.' });
@@ -185,7 +188,8 @@ export class InventoryController {
   }
 
   getTransactionsByItemId = async (req: Request, res: Response): Promise<void> => {
-    const itemId = parseInt(req.params.itemId);
+    // FIX: Cast as string
+    const itemId = parseInt(req.params.itemId as string);
     if (isNaN(itemId)) {
       res.status(400).json({ error: 'Invalid item ID.' });
       return;
@@ -211,7 +215,8 @@ export class InventoryController {
   }
 
   getItemStockStatus = async (req: Request, res: Response): Promise<void> => {
-    const itemId = parseInt(req.params.id);
+    // FIX: Cast as string
+    const itemId = parseInt(req.params.id as string);
     if (isNaN(itemId)) {
       res.status(400).json({ error: 'Invalid item ID.' });
       return;
