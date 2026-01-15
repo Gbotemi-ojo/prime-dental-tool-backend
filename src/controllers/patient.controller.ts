@@ -97,7 +97,7 @@ export class PatientController {
   };
 
   addFamilyMember = async (req: Request, res: Response): Promise<void> => {
-    const headId = parseInt(req.params.headId as string, 10);
+    const headId = parseInt(req.params.headId as any, 10);
     const { name, sex, dateOfBirth } = req.body;
     if (isNaN(headId)) {
       res.status(400).json({ error: 'Invalid family head ID.' });
@@ -150,11 +150,12 @@ export class PatientController {
     }
   };
 
+  // --- UPDATED: Get All Patients with Pagination & Date Filtering ---
   getAllPatients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       // Parse query parameters
-      const page = parseInt(String(req.query.page)) || 1;
-      const limit = parseInt(String(req.query.limit)) || 10;
+      const page = parseInt(req.query.page as any) || 1;
+      const limit = parseInt(req.query.limit as any) || 10;
       const search = (req.query.search as string) || '';
       // NEW: Extract date filter
       const date = (req.query.date as string) || '';
@@ -170,7 +171,7 @@ export class PatientController {
   }
 
   getPatientById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.id as string, 10);
+    const patientId = parseInt(req.params.id as any);
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -191,7 +192,7 @@ export class PatientController {
   }
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.id as string, 10);
+    const patientId = parseInt(req.params.id as any);
     const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -221,7 +222,7 @@ export class PatientController {
   }
 
   scheduleNextAppointment = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any, 10);
     const { interval } = req.body;
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -246,7 +247,7 @@ export class PatientController {
   }
 
   sendAppointmentReminder = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any, 10);
     if (isNaN(patientId)) {
         res.status(400).json({ error: 'Invalid patient ID.' });
         return;
@@ -266,9 +267,8 @@ export class PatientController {
   };
 
   sendProcedureSpecificReminder = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
-    // Explicitly cast req.params.type to string
-    const type = req.params.type as string;
+    const patientId = parseInt(req.params.patientId as any, 10);
+    const { type } = req.params;
 
     if (isNaN(patientId)) {
         res.status(400).json({ error: 'Invalid patient ID.' });
@@ -294,7 +294,7 @@ export class PatientController {
   };
   
   sendCustomEmail = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any, 10);
     const { subject, message } = req.body;
 
     if (isNaN(patientId)) {
@@ -322,7 +322,7 @@ export class PatientController {
 
 
   createDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any);
     const doctorId = req.user!.userId;
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -343,7 +343,7 @@ export class PatientController {
   }
 
   getDentalRecordsByPatientId = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any);
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
       return;
@@ -358,8 +358,8 @@ export class PatientController {
   }
 
   getSpecificDentalRecordForPatient = async (req: Request, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
-    const recordId = parseInt(req.params.recordId as string, 10);
+    const patientId = parseInt(req.params.patientId as any);
+    const recordId = parseInt(req.params.recordId as any);
     if (isNaN(patientId) || isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid patient ID or record ID.' });
       return;
@@ -378,7 +378,7 @@ export class PatientController {
   }
 
   getDentalRecordById = async (req: Request, res: Response): Promise<void> => {
-    const recordId = parseInt(req.params.id as string, 10);
+    const recordId = parseInt(req.params.id as any);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
       return;
@@ -397,7 +397,7 @@ export class PatientController {
   }
 
   updateDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const recordId = parseInt(req.params.id as string, 10);
+    const recordId = parseInt(req.params.id as any);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
       return;
@@ -417,7 +417,7 @@ export class PatientController {
   }
 
   deleteDentalRecord = async (req: Request, res: Response): Promise<void> => {
-    const recordId = parseInt(req.params.id as string, 10);
+    const recordId = parseInt(req.params.id as any);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
       return;
@@ -436,7 +436,7 @@ export class PatientController {
   }
 
   getDoctorSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const doctorId = parseInt(req.params.doctorId as string, 10);
+    const doctorId = parseInt(req.params.doctorId as any);
     if (isNaN(doctorId)) {
         res.status(400).json({ error: 'Invalid doctor ID.' });
         return;
@@ -461,7 +461,7 @@ export class PatientController {
   }
 
   assignDoctor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const patientId = parseInt(req.params.patientId as string, 10);
+    const patientId = parseInt(req.params.patientId as any);
     const { doctorId } = req.body;
     const receptionistId = req.user!.userId;
 
