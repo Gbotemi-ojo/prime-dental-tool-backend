@@ -53,7 +53,7 @@ export class WebsiteBookingService {
                 <p>Hello <strong>${booking.name}</strong>,</p>
                 <p>This is a friendly reminder regarding your appointment request at <strong>Prime Dental Clinic</strong>.</p>
                 <p>Our team is reviewing your request for <strong>${booking.requestedAppointmentDate ? new Date(booking.requestedAppointmentDate).toLocaleDateString() : 'your requested date'}</strong>. We will contact you shortly to confirm the exact time.</p>
-                <p>If you have any urgent questions, please call us at 0805 516 2585.</p>
+                <p>If you have any urgent questions, please call us at 0703 070 8877</p>
                 <hr style="border: 0; border-top: 1px solid #eee;" />
                 <p style="font-size: 0.8em; color: #777;">Prime Dental Clinic - Your Smile, Our Priority.</p>
             </div>
