@@ -7,9 +7,8 @@
 
     /* Modules */
     "module": "commonjs",
-    "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["./src/*"]
     },
 
     /* Emit */
@@ -21,11 +20,10 @@
     "forceConsistentCasingInFileNames": true,
 
     /* --- RELAXED TYPE CHECKING (The Fix) --- */
-    "strict": false,                       /* Was true. Disables strict mode. */
-    "noImplicitAny": false,                /* Was true. Allows 'any' types. */
-    "strictNullChecks": false,             /* Was true. Stops complaining about null/undefined. */
-    "strictPropertyInitialization": false, /* Was true. Stops complaining about class properties. */
-    "alwaysStrict": false,                 /* Was true. */
+    "strict": false,                       /* Disables strict mode. */
+    "noImplicitAny": false,                /* Allows 'any' types. */
+    "strictNullChecks": true,              /* MUST BE TRUE FOR DRIZZLE ORM */
+    "strictPropertyInitialization": false, /* Stops complaining about class properties. */
     
     /* Completeness */
     "skipLibCheck": true

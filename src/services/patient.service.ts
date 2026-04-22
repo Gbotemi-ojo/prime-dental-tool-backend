@@ -1,4 +1,4 @@
-import { eq, ne, and, desc, isNull, isNotNull, gte, sql, or, like, inArray, asc } from 'drizzle-orm';
+import { SQL, eq, ne, and, desc, isNull, isNotNull, gte, sql, or, like, inArray, asc } from 'drizzle-orm';
 import { db } from '../config/database';
 import { patients, dentalRecords, users, dailyVisits } from '../../db/schema';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
@@ -199,9 +199,11 @@ export class PatientService {
                return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
           }
       }
-      let whereClause = undefined;
+      
+      let whereClause: SQL | undefined = undefined;
       const searchCondition = searchTerm ? or(like(patients.name, `%${searchTerm}%`), like(patients.phoneNumber, `%${searchTerm}%`), like(patients.email, `%${searchTerm}%`)) : undefined;
       const dateCondition = datePatientIds ? inArray(patients.id, datePatientIds) : undefined;
+      
       if (searchCondition && dateCondition) { whereClause = and(searchCondition, dateCondition); } 
       else if (searchCondition) { whereClause = searchCondition; } 
       else if (dateCondition) { whereClause = dateCondition; }
@@ -241,7 +243,6 @@ export class PatientService {
       };
     }
 
-    // ... (Keep existing methods: getPatientById, _getPatientWithContactInfoForInternalUse, updatePatient, scheduleNextAppointment, sendAppointmentReminder, sendProcedureSpecificReminder, sendCustomEmail, createDentalRecord, getDentalRecordsByPatientId, getSpecificDentalRecordForPatient, getDentalRecordById, updateDentalRecord, deleteDentalRecord, getPatientsForDoctor, getAllPatientsForScheduling, assignDoctorToPatient, _sendNewPatientNotifications, _sendReturningPatientNotifications)
     async getPatientById(patientId: number, user?: AuthenticatedUser, settings?: any) {
         const patient = await db.query.patients.findFirst({
             where: eq(patients.id, patientId),
