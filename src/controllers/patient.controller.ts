@@ -104,7 +104,6 @@ export class PatientController {
   };
 
   addFamilyMember = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const headId = safeInt(req.params.headId);
     const { name, sex, dateOfBirth } = req.body;
     if (isNaN(headId)) {
@@ -175,7 +174,6 @@ export class PatientController {
   }
 
   getPatientById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.id);
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -197,7 +195,6 @@ export class PatientController {
   }
 
   updatePatient = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.id);
     const { name, sex, dateOfBirth, phoneNumber, email, address, hmo } = req.body;
     if (isNaN(patientId)) {
@@ -228,7 +225,6 @@ export class PatientController {
   }
 
   scheduleNextAppointment = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     const { interval } = req.body;
     if (isNaN(patientId)) {
@@ -254,7 +250,6 @@ export class PatientController {
   }
 
   sendAppointmentReminder = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     if (isNaN(patientId)) {
         res.status(400).json({ error: 'Invalid patient ID.' });
@@ -275,9 +270,9 @@ export class PatientController {
   };
 
   sendProcedureSpecificReminder = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
-    const { type } = req.params;
+    // FIX: Force TS to recognize this as a single string
+    const type = req.params.type as string;
 
     if (isNaN(patientId)) {
         res.status(400).json({ error: 'Invalid patient ID.' });
@@ -303,7 +298,6 @@ export class PatientController {
   };
   
   sendCustomEmail = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     const { subject, message } = req.body;
 
@@ -317,7 +311,7 @@ export class PatientController {
     }
 
     try {
-        const result = await patientService.sendCustomEmail(patientId, subject, message);
+        const result = await patientService.sendCustomEmail(patientId, subject as string, message as string);
         if (!result.success) {
             const statusCode = result.message.includes('not found') ? 404 : 400;
             res.status(statusCode).json({ error: result.message });
@@ -330,9 +324,7 @@ export class PatientController {
     }
   };
 
-
   createDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     const doctorId = req.user!.userId;
     if (isNaN(patientId)) {
@@ -354,7 +346,6 @@ export class PatientController {
   }
 
   getDentalRecordsByPatientId = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     if (isNaN(patientId)) {
       res.status(400).json({ error: 'Invalid patient ID.' });
@@ -370,7 +361,6 @@ export class PatientController {
   }
 
   getSpecificDentalRecordForPatient = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     const recordId = safeInt(req.params.recordId);
     if (isNaN(patientId) || isNaN(recordId)) {
@@ -391,7 +381,6 @@ export class PatientController {
   }
 
   getDentalRecordById = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const recordId = safeInt(req.params.id);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
@@ -411,7 +400,6 @@ export class PatientController {
   }
 
   updateDentalRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const recordId = safeInt(req.params.id);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
@@ -432,7 +420,6 @@ export class PatientController {
   }
 
   deleteDentalRecord = async (req: Request, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const recordId = safeInt(req.params.id);
     if (isNaN(recordId)) {
       res.status(400).json({ error: 'Invalid record ID.' });
@@ -452,7 +439,6 @@ export class PatientController {
   }
 
   getDoctorSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const doctorId = safeInt(req.params.doctorId);
     if (isNaN(doctorId)) {
         res.status(400).json({ error: 'Invalid doctor ID.' });
@@ -478,7 +464,6 @@ export class PatientController {
   }
 
   assignDoctor = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    // FIX: Use safeInt helper
     const patientId = safeInt(req.params.patientId);
     const { doctorId } = req.body;
     const receptionistId = req.user!.userId;
