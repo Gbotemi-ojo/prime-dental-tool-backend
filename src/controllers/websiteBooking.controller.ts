@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import { websiteBookingService } from '../services/websiteBooking.service';
 
 export class WebsiteBookingController {
-
     submitBooking = async (req: Request, res: Response): Promise<void> => {
-        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo, requestedAppointmentDate, complaint } = req.body;
+        // Extract branch from req.body
+        const { name, sex, dateOfBirth, phoneNumber, email, address, hmo, branch, requestedAppointmentDate, complaint } = req.body;
 
         if (!name || !phoneNumber) {
             res.status(400).json({ error: 'Name and phone number are required.' });
@@ -13,7 +13,7 @@ export class WebsiteBookingController {
 
         try {
             const bookingData = {
-                name, sex, phoneNumber, email, address, hmo, complaint,
+                name, sex, phoneNumber, email, address, hmo, branch, complaint, // Added branch here
                 dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
                 requestedAppointmentDate: requestedAppointmentDate ? new Date(requestedAppointmentDate) : null,
             };
@@ -55,7 +55,6 @@ export class WebsiteBookingController {
         }
     };
 
-    // NEW: Method for dashboard reminder trigger
     sendReminder = async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
         try {

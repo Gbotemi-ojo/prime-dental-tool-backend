@@ -214,6 +214,7 @@ export const websiteBookings = mysqlTable("website_bookings", {
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(), // Vital for contact
     email: varchar("email", { length: 255 }),
     address: text("address"),
+    branch: varchar('branch', { length: 50 }),
     hmo: json("hmo"), // Can capture HMO details if the form asks for it
     requestedAppointmentDate: timestamp("requested_appointment_date", { mode: 'date' }), // Maps to nextAppointmentDate
     complaint: text("complaint"), // Useful for knowing why they are booking

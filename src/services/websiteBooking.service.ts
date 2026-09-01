@@ -62,6 +62,7 @@ export class WebsiteBookingService {
     }
 
     // Welcome Email Helper
+// Welcome Email Helper
     private async _sendWelcomeEmailToPatient(booking: any) {
         try {
             const subject = `Welcome to Prime Dental Clinic - Appointment Request Received`;
@@ -73,6 +74,7 @@ export class WebsiteBookingService {
                     <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
                         <h3 style="margin-top: 0;">Request Summary:</h3>
                         <ul style="list-style: none; padding: 0;">
+                            <li><strong>Preferred Branch:</strong> ${booking.branch || 'Not specified'}</li>
                             <li><strong>Preferred Date:</strong> ${booking.requestedAppointmentDate ? new Date(booking.requestedAppointmentDate).toLocaleDateString() : 'Not specified'}</li>
                             <li><strong>Reason for Visit:</strong> ${booking.complaint || 'General Checkup'}</li>
                         </ul>
@@ -81,6 +83,7 @@ export class WebsiteBookingService {
                     <p>Best Regards,<br/><strong>The Prime Dental Team</strong></p>
                 </div>
             `;
+
             await emailService.sendEmail(booking.email, subject, htmlContent);
         } catch (error) {
             console.error("Failed to send patient welcome email", error);
@@ -91,6 +94,7 @@ export class WebsiteBookingService {
         try {
             const staffEmails = await (emailService as any)._getOwnerAndStaffEmails();
             const ownerEmail = process.env.OWNER_EMAIL;
+
             if (ownerEmail && !staffEmails.includes(ownerEmail)) staffEmails.push(ownerEmail);
 
             if (staffEmails.length > 0) {
@@ -101,11 +105,13 @@ export class WebsiteBookingService {
                     <ul>
                         <li><strong>Name:</strong> ${booking.name}</li>
                         <li><strong>Phone:</strong> ${booking.phoneNumber}</li>
+                        <li><strong>Branch:</strong> ${booking.branch || 'Not specified'}</li>
                         <li><strong>Requested Date:</strong> ${booking.requestedAppointmentDate ? new Date(booking.requestedAppointmentDate).toLocaleDateString() : 'Not specified'}</li>
                         <li><strong>Complaint/Reason:</strong> ${booking.complaint || 'N/A'}</li>
                     </ul>
                     <p>Please login to the dashboard to review.</p>
                 `;
+
                 await emailService.sendEmail(staffEmails.join(','), subject, htmlContent);
             }
         } catch (error) {

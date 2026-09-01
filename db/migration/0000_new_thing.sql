@@ -176,6 +176,7 @@ CREATE TABLE `website_bookings` (
 	`phone_number` varchar(20) NOT NULL,
 	`email` varchar(255),
 	`address` text,
+	`branch` varchar(50),
 	`hmo` json,
 	`requested_appointment_date` timestamp,
 	`complaint` text,

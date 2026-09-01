@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "b2edb855-429d-44c7-970b-cc92347e3f0e",
+  "id": "ab24b479-5432-4ec4-90af-b5e2e83c5980",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_reports": {
@@ -1272,6 +1272,13 @@
         "address": {
           "name": "address",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "branch": {
+          "name": "branch",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
