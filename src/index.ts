@@ -4,9 +4,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
-
+import cron from 'node-cron';
 import { testDatabaseConnection } from './config/database';
 import apiRoutes from './routes';
+import { broadcastService } from './services/broadcast.service';
 
 dotenv.config();
 
@@ -18,6 +19,14 @@ const app = express();
 app.set('trust proxy', 1);
 // -----------------------------------
 
+// --- CRON JOBS ---
+// Runs automatically every day at 08:00 AM to send birthday broadcasts
+cron.schedule('0 8 * * *', async () => {
+  console.log('⏰ [Cron] Starting automated daily birthday broadcasts...');
+  await broadcastService.sendBirthdayBroadcasts();
+});
+// -----------------------------------
+
 const API_PREFIX = process.env.API_PREFIX || '/api';
 
 // Security middleware
@@ -25,9 +34,9 @@ app.use(helmet());
 
 // CORS configuration updated to allow the custom idempotency header
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*', 
+  origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'], 
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
 }));
 
 // Body parser
@@ -39,7 +48,7 @@ app.use(morgan('dev'));
 // Rate limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, 
+  max: 500,
   message: 'Too many requests from this IP, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,7 +66,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).send('Something broke!');
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 6000;
 
 // Test database connection and start server
 testDatabaseConnection()
