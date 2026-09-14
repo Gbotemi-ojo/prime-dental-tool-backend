@@ -5,6 +5,19 @@ import { emailService } from './email.service';
 
 type BirthdayPatient = { id: number; name: string; email: string | null };
 
+// ============================================================================
+// --- TEST MODE CONFIGURATION ---
+// Change IS_TEST_MODE to `false` when you are ready to send to all patients.
+// ============================================================================
+const IS_TEST_MODE = true; 
+const TEST_EMAILS = [
+    'hommzmum@gmail.com',
+    'thegameclash444@gmail.com',
+    'gbotexlatex.english@gmail.com',
+    'orthoplusemr@gmail.com',
+    'gbotexlatex.arabic@gmail.com'
+];
+
 // --- BATCH PROCESSING CONFIGURATION ---
 const BATCH_SIZE = 50; // Number of emails to send per batch
 const BATCH_DELAY_MS = 1000 * 60 * 60; // 1 hour delay between batches (Adjust to match provider limits)
@@ -22,7 +35,6 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 class BroadcastService {
     /**
      * Retrieves a list of all patients whose birthday is today.
-     * @returns {Promise<{success: boolean, patients: BirthdayPatient[], message?: string}>} List of patients.
      */
     async getTodaysBirthdays(): Promise<{ success: boolean; patients: BirthdayPatient[]; message?: string }> {
         try {
@@ -47,17 +59,23 @@ class BroadcastService {
 
     /**
      * Finds all patients whose birthday is today and queues a birthday wish email.
-     * @returns {Promise<{success: boolean, message: string, sentCount: number, failedCount: number}>} Result of the operation.
      */
     async sendBirthdayBroadcasts(): Promise<{ success: boolean; message: string; sentCount: number; failedCount: number }> {
         try {
             const { success, patients: birthdayPatients } = await this.getTodaysBirthdays();
 
-            if (!success || birthdayPatients.length === 0) {
+            let recipients = birthdayPatients.filter(p => p.email);
+
+            // --- TEST MODE OVERRIDE ---
+            if (IS_TEST_MODE) {
+                console.log(`[TEST MODE] Overriding birthday list. Sending ONLY to the ${TEST_EMAILS.length} test emails.`);
+                recipients = TEST_EMAILS.map((email, i) => ({ id: i, name: 'Test Patient', email }));
+            }
+            // --------------------------
+
+            if (!success || (recipients.length === 0 && !IS_TEST_MODE)) {
                 return { success: true, message: 'No patients have a birthday today.', sentCount: 0, failedCount: 0 };
             }
-
-            const recipients = birthdayPatients.filter(p => p.email);
 
             if (recipients.length === 0) {
                 return { success: true, message: 'Found birthday patients, but none have a valid email address.', sentCount: 0, failedCount: 0 };
@@ -80,9 +98,6 @@ class BroadcastService {
 
     /**
      * Sends a custom email to all patients, owners, and staff using batch processing.
-     * @param subject The email subject.
-     * @param messageBody The plain text or HTML content of the email.
-     * @returns {Promise<{success: boolean, message: string}>} Result of the operation.
      */
     async sendCustomBroadcast(subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
         try {
@@ -96,16 +111,25 @@ class BroadcastService {
             const uniqueRecipients = Array.from(new Set(allRecipients.map(r => r.email)))
                 .map(email => allRecipients.find(r => r.email === email)!);
 
-            if (uniqueRecipients.length === 0) {
-                return { success: true, message: 'No patients with valid email addresses found to send the broadcast to.' };
+            let finalRecipients = uniqueRecipients;
+
+            // --- TEST MODE OVERRIDE ---
+            if (IS_TEST_MODE) {
+                console.log(`[TEST MODE] Overriding custom broadcast list. Sending ONLY to the ${TEST_EMAILS.length} test emails.`);
+                finalRecipients = TEST_EMAILS.map((email, i) => ({ email, name: 'Test User' }));
+            }
+            // --------------------------
+
+            if (finalRecipients.length === 0) {
+                return { success: true, message: 'No valid email addresses found to send the broadcast to.' };
             }
 
             // Start background processing so the server doesn't block the request
-            this.processCustomBatchesInBackground(uniqueRecipients, subject, messageBody);
+            this.processCustomBatchesInBackground(finalRecipients, subject, messageBody);
 
             return { 
                 success: true, 
-                message: `Broadcast queued successfully for ${uniqueRecipients.length} recipients. Sending in background batches to prevent rate limits.` 
+                message: `Broadcast queued successfully for ${finalRecipients.length} recipients. Sending in background batches to prevent rate limits.` 
             };
         } catch (error: any) {
             console.error('Error sending custom broadcast:', error);
@@ -115,10 +139,6 @@ class BroadcastService {
 
     /**
      * Sends a direct message to a single patient.
-     * @param patientId The ID of the patient.
-     * @param subject The email subject.
-     * @param messageBody The email content.
-     * @returns {Promise<{success: boolean, message: string}>} Result of the operation.
      */
     async sendDirectMessage(patientId: number, subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
         try {
@@ -151,7 +171,6 @@ class BroadcastService {
 
     /**
      * Retrieves all unique patient phone numbers as a single comma-separated string.
-     * @returns {Promise<{success: boolean, phoneNumbers: string | null, message?: string}>} The phone numbers string or an error message.
      */
     async getAllPhoneNumbers(): Promise<{ success: boolean; phoneNumbers: string | null; message?: string }> {
         try {
