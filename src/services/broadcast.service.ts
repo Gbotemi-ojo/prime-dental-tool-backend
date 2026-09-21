@@ -10,6 +10,7 @@ type BirthdayPatient = { id: number; name: string; email: string | null };
 // Change IS_TEST_MODE to `false` when you are ready to send to all patients.
 // ============================================================================
 const IS_TEST_MODE = true; 
+
 const TEST_EMAILS = [
     'hommzmum@gmail.com',
     'thegameclash444@gmail.com',
@@ -17,20 +18,6 @@ const TEST_EMAILS = [
     'orthoplusemr@gmail.com',
     'gbotexlatex.arabic@gmail.com'
 ];
-
-// --- BATCH PROCESSING CONFIGURATION ---
-const BATCH_SIZE = 50; // Number of emails to send per batch
-const BATCH_DELAY_MS = 1000 * 60 * 60; // 1 hour delay between batches (Adjust to match provider limits)
-
-// Utility functions for background batching
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-function chunkArray<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-        chunks.push(array.slice(i, i + size));
-    }
-    return chunks;
-}
 
 class BroadcastService {
     /**
@@ -58,12 +45,11 @@ class BroadcastService {
     }
 
     /**
-     * Finds all patients whose birthday is today and queues a birthday wish email.
+     * Finds all patients whose birthday is today and sends a birthday wish email.
      */
     async sendBirthdayBroadcasts(): Promise<{ success: boolean; message: string; sentCount: number; failedCount: number }> {
         try {
             const { success, patients: birthdayPatients } = await this.getTodaysBirthdays();
-
             let recipients = birthdayPatients.filter(p => p.email);
 
             // --- TEST MODE OVERRIDE ---
@@ -81,12 +67,16 @@ class BroadcastService {
                 return { success: true, message: 'Found birthday patients, but none have a valid email address.', sentCount: 0, failedCount: 0 };
             }
 
-            // Start background processing so the server doesn't block the request
-            this.processBirthdayBatchesInBackground(recipients);
+            // Send synchronously so Vercel awaits the completion
+            const emailPromises = recipients.map(patient =>
+                emailService.sendBirthdayWish(patient.email!, { patientName: patient.name! })
+            );
+
+            await Promise.allSettled(emailPromises);
 
             return {
                 success: true,
-                message: `Birthday broadcast queued for ${recipients.length} patients. Processing in background batches.`,
+                message: `Birthday broadcast sent successfully to ${recipients.length} patients.`,
                 sentCount: recipients.length,
                 failedCount: 0
             };
@@ -97,13 +87,13 @@ class BroadcastService {
     }
 
     /**
-     * Sends a custom email to all patients, owners, and staff using batch processing.
+     * Sends a custom email to all patients, owners, and staff using batch limits.
      */
-    async sendCustomBroadcast(subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
+    async sendCustomBroadcast(subject: string, messageBody: string, offset: number = 0, limit: number = 100): Promise<{ success: boolean; message: string }> {
         try {
             const allPatients = await db.select({ email: patients.email, name: patients.name }).from(patients);
             const patientRecipients = allPatients.filter((p): p is { email: string, name: string } => !!p.email && !!p.name);
-
+            
             const staffAndOwnerEmails = await (emailService as any)._getOwnerAndStaffEmails();
             const staffRecipients = staffAndOwnerEmails.map((email: string) => ({ email, name: 'Staff Member' }));
 
@@ -120,17 +110,28 @@ class BroadcastService {
             }
             // --------------------------
 
-            if (finalRecipients.length === 0) {
-                return { success: true, message: 'No valid email addresses found to send the broadcast to.' };
+            // Apply pagination based on the frontend range
+            const batchRecipients = finalRecipients.slice(offset, offset + limit);
+
+            if (batchRecipients.length === 0) {
+                return { success: true, message: 'No valid email addresses found in this range.' };
             }
 
-            // Start background processing so the server doesn't block the request
-            this.processCustomBatchesInBackground(finalRecipients, subject, messageBody);
+            // Send synchronously so Vercel awaits the completion
+            const emailPromises = batchRecipients.map(recipient =>
+                emailService.sendCustomEmail(recipient.email, {
+                    patientName: recipient.name,
+                    subject,
+                    messageBody,
+                })
+            );
+
+            await Promise.allSettled(emailPromises);
 
             return { 
-                success: true, 
-                message: `Broadcast queued successfully for ${finalRecipients.length} recipients. Sending in background batches to prevent rate limits.` 
-            };
+                 success: true, 
+                 message: `Broadcast successfully sent to ${batchRecipients.length} recipients (Range: ${offset + 1} to ${offset + batchRecipients.length}).` 
+             };
         } catch (error: any) {
             console.error('Error sending custom broadcast:', error);
             return { success: false, message: 'A server error occurred while sending the custom broadcast.' };
@@ -143,7 +144,6 @@ class BroadcastService {
     async sendDirectMessage(patientId: number, subject: string, messageBody: string): Promise<{ success: boolean; message: string }> {
         try {
             const [patient] = await db.select().from(patients).where(sql`id = ${patientId}`);
-
             if (!patient) {
                 return { success: false, message: 'Patient not found.' };
             }
@@ -175,11 +175,9 @@ class BroadcastService {
     async getAllPhoneNumbers(): Promise<{ success: boolean; phoneNumbers: string | null; message?: string }> {
         try {
             const allPatients = await db.select({ phoneNumber: patients.phoneNumber }).from(patients);
-
             const phoneNumbers = allPatients
                 .map(p => p.phoneNumber)
                 .filter((pn): pn is string => !!pn && pn.trim() !== '');
-
             const uniquePhoneNumbers = [...new Set(phoneNumbers)];
             const commaSeparatedNumbers = uniquePhoneNumbers.join(', ');
 
@@ -190,51 +188,6 @@ class BroadcastService {
         }
     }
 
-    // --- BACKGROUND BATCH WORKERS ---
-
-    private async processCustomBatchesInBackground(recipients: { email: string; name: string }[], subject: string, messageBody: string) {
-        const chunks = chunkArray(recipients, BATCH_SIZE);
-        console.log(`[Broadcast] Starting custom broadcast: ${chunks.length} batches of up to ${BATCH_SIZE} emails.`);
-
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            const emailPromises = chunk.map(recipient =>
-                emailService.sendCustomEmail(recipient.email, {
-                    patientName: recipient.name,
-                    subject,
-                    messageBody,
-                })
-            );
-
-            await Promise.allSettled(emailPromises);
-            console.log(`[Broadcast] Processed custom batch ${i + 1} of ${chunks.length}.`);
-
-            if (i < chunks.length - 1) {
-                await delay(BATCH_DELAY_MS);
-            }
-        }
-        console.log('[Broadcast] Custom broadcast completely finished.');
-    }
-
-    private async processBirthdayBatchesInBackground(recipients: BirthdayPatient[]) {
-        const chunks = chunkArray(recipients, BATCH_SIZE);
-        console.log(`[Broadcast] Starting birthday broadcast: ${chunks.length} batches of up to ${BATCH_SIZE} emails.`);
-        
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            const emailPromises = chunk.map(patient =>
-                emailService.sendBirthdayWish(patient.email!, { patientName: patient.name! })
-            );
-
-            await Promise.allSettled(emailPromises);
-            console.log(`[Broadcast] Processed birthday batch ${i + 1} of ${chunks.length}.`);
-
-            if (i < chunks.length - 1) {
-                await delay(BATCH_DELAY_MS);
-            }
-        }
-        console.log('[Broadcast] Birthday broadcast completely finished.');
-    }
 }
 
 export const broadcastService = new BroadcastService();

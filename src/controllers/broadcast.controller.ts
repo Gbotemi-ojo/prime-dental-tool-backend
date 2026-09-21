@@ -1,4 +1,3 @@
-// src/controllers/broadcast.controller.ts
 import { Request, Response } from 'express';
 import { broadcastService } from '../services/broadcast.service';
 
@@ -20,8 +19,8 @@ class BroadcastController {
     sendBirthdayBroadcast = async (req: Request, res: Response): Promise<void> => {
         try {
             const result = await broadcastService.sendBirthdayBroadcasts();
-            if (!result.success && result.sentCount > 0) {
-                 res.status(207).json(result);
+            if (!result.success && result.sentCount > 0) { 
+                res.status(207).json(result);
             } else if (result.success) {
                 res.status(200).json(result);
             } else {
@@ -34,14 +33,15 @@ class BroadcastController {
     };
 
     sendCustomBroadcast = async (req: Request, res: Response): Promise<void> => {
-        const { subject, message } = req.body;
+        const { subject, message, offset = 0, limit = 100 } = req.body;
+
         if (!subject || !message) {
             res.status(400).json({ success: false, message: 'Subject and message body are required.' });
             return;
         }
 
         try {
-            const result = await broadcastService.sendCustomBroadcast(subject, message);
+            const result = await broadcastService.sendCustomBroadcast(subject, message, Number(offset), Number(limit));
             if (!result.success && result.message.includes('Failed')) {
                 res.status(207).json(result);
             } else if (result.success) {
@@ -90,7 +90,8 @@ class BroadcastController {
     getAllPhoneNumbers = async (req: Request, res: Response): Promise<void> => {
         try {
             const result = await broadcastService.getAllPhoneNumbers();
-             if (result.success) {
+            
+            if (result.success) {
                 res.status(200).json(result);
             } else {
                 res.status(500).json(result);

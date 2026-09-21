@@ -4,7 +4,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
-import cron from 'node-cron';
 import { testDatabaseConnection } from './config/database';
 import apiRoutes from './routes';
 import { broadcastService } from './services/broadcast.service';
@@ -19,14 +18,6 @@ const app = express();
 app.set('trust proxy', 1);
 // -----------------------------------
 
-// --- CRON JOBS ---
-// Runs automatically every day at 08:00 AM to send birthday broadcasts
-cron.schedule('0 8 * * *', async () => {
-  console.log('⏰ [Cron] Starting automated daily birthday broadcasts...');
-  await broadcastService.sendBirthdayBroadcasts();
-});
-// -----------------------------------
-
 const API_PREFIX = process.env.API_PREFIX || '/api';
 
 // Security middleware
@@ -35,7 +26,7 @@ app.use(helmet());
 // CORS configuration updated to allow the custom idempotency header
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
 }));
 
