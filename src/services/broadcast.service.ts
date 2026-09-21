@@ -9,7 +9,7 @@ type BirthdayPatient = { id: number; name: string; email: string | null };
 // --- TEST MODE CONFIGURATION ---
 // Change IS_TEST_MODE to `false` when you are ready to send to all patients.
 // ============================================================================
-const IS_TEST_MODE = true; 
+const IS_TEST_MODE = false; 
 
 const TEST_EMAILS = [
     'hommzmum@gmail.com',
