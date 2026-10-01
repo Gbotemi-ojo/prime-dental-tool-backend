@@ -30,7 +30,23 @@ router.post(
     broadcastController.sendCustomBroadcast
 );
 
-// NEW: POST /direct-message/:patientId - Send a direct message to one patient
+// NEW: GET /filter - Get patients filtered by diagnosis and date range
+router.get(
+    '/filter',
+    authenticateToken,
+    authorizeRoles(allowedRoles),
+    broadcastController.getFilteredPatients
+);
+
+// NEW: POST /targeted - Send a custom message to specific selected patients
+router.post(
+    '/targeted',
+    authenticateToken,
+    authorizeRoles(allowedRoles),
+    broadcastController.sendTargetedBroadcast
+);
+
+// POST /direct-message/:patientId - Send a direct message to one patient
 router.post(
     '/direct-message/:patientId',
     authenticateToken,

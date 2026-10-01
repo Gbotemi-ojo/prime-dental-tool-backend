@@ -1,6 +1,7 @@
-import { sql } from 'drizzle-orm';
+// src/services/broadcast.service.ts
+import { sql, and, eq, gte, lte, like, inArray, isNotNull, SQL } from 'drizzle-orm';
 import { db } from '../config/database';
-import { patients } from '../../db/schema';
+import { patients, dentalRecords } from '../../db/schema';
 import { emailService } from './email.service';
 
 type BirthdayPatient = { id: number; name: string; email: string | null };
@@ -128,13 +129,115 @@ class BroadcastService {
 
             await Promise.allSettled(emailPromises);
 
-            return { 
-                 success: true, 
-                 message: `Broadcast successfully sent to ${batchRecipients.length} recipients (Range: ${offset + 1} to ${offset + batchRecipients.length}).` 
-             };
+            return {
+                success: true,
+                message: `Broadcast successfully sent to ${batchRecipients.length} recipients (Range: ${offset + 1} to ${offset + batchRecipients.length}).`
+            };
         } catch (error: any) {
             console.error('Error sending custom broadcast:', error);
             return { success: false, message: 'A server error occurred while sending the custom broadcast.' };
+        }
+    }
+
+    /**
+     * Retrieves patients based on date range and/or treatment plan from their dental records.
+     */
+    async getFilteredPatients(startDate?: string, endDate?: string, treatmentPlanQuery?: string): Promise<{ success: boolean; patients: any[]; message?: string }> {
+        try {
+            const conditions: SQL[] = [];
+
+            if (startDate) {
+                conditions.push(gte(dentalRecords.createdAt, new Date(startDate)));
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                conditions.push(lte(dentalRecords.createdAt, end));
+            }
+            if (treatmentPlanQuery) {
+                // Filter by treatment plan instead of diagnosis
+                conditions.push(like(dentalRecords.treatmentPlan, `%${treatmentPlanQuery}%`));
+            }
+
+            const records = await db.select({
+                patientId: patients.id,
+                name: patients.name,
+                email: patients.email,
+                phoneNumber: patients.phoneNumber,
+                treatmentPlan: dentalRecords.treatmentPlan, 
+                visitDate: dentalRecords.createdAt
+            })
+            .from(dentalRecords)
+            .innerJoin(patients, eq(dentalRecords.patientId, patients.id))
+            .where(conditions.length > 0 ? and(...conditions) : isNotNull(dentalRecords.id))
+            .orderBy(dentalRecords.createdAt);
+
+            // Deduplicate patients so they only appear once even if they had multiple matching visits
+            const uniquePatientsMap = new Map();
+            for (const r of records) {
+                if (!uniquePatientsMap.has(r.patientId)) {
+                    uniquePatientsMap.set(r.patientId, {
+                        id: r.patientId,
+                        name: r.name,
+                        email: r.email,
+                        phoneNumber: r.phoneNumber,
+                        treatmentPlan: r.treatmentPlan,
+                        visitDate: r.visitDate
+                    });
+                }
+            }
+
+            return { success: true, patients: Array.from(uniquePatientsMap.values()) };
+        } catch (error: any) {
+            console.error('Error fetching filtered patients:', error);
+            return { success: false, patients: [], message: 'A server error occurred while filtering patients.' };
+        }
+    }
+
+    /**
+     * Sends a custom email to a specific list of patients by ID.
+     */
+    async sendTargetedBroadcast(patientIds: number[], subject: string, messageBody: string): Promise<{ success: boolean; message: string; sentCount?: number }> {
+        try {
+            const targetPatients = await db.select({
+                id: patients.id,
+                name: patients.name,
+                email: patients.email
+            })
+            .from(patients)
+            .where(inArray(patients.id, patientIds));
+
+            let recipients = targetPatients.filter((p): p is { id: number, name: string, email: string } => !!p.email);
+
+            // --- TEST MODE OVERRIDE ---
+            if (IS_TEST_MODE) {
+                console.log(`[TEST MODE] Overriding targeted broadcast list. Sending ONLY to test emails.`);
+                recipients = TEST_EMAILS.map((email, i) => ({ id: i, name: 'Test Target Patient', email }));
+            }
+            // --------------------------
+
+            if (recipients.length === 0) {
+                return { success: false, message: 'No valid email addresses found for the selected patients.' };
+            }
+
+            const emailPromises = recipients.map(recipient =>
+                emailService.sendCustomEmail(recipient.email, {
+                    patientName: recipient.name,
+                    subject,
+                    messageBody,
+                })
+            );
+
+            await Promise.allSettled(emailPromises);
+
+            return {
+                success: true,
+                message: `Targeted broadcast successfully sent to ${recipients.length} patients.`,
+                sentCount: recipients.length
+            };
+        } catch (error: any) {
+            console.error('Error sending targeted broadcast:', error);
+            return { success: false, message: 'A server error occurred while sending the targeted broadcast.' };
         }
     }
 
@@ -175,9 +278,11 @@ class BroadcastService {
     async getAllPhoneNumbers(): Promise<{ success: boolean; phoneNumbers: string | null; message?: string }> {
         try {
             const allPatients = await db.select({ phoneNumber: patients.phoneNumber }).from(patients);
+            
             const phoneNumbers = allPatients
                 .map(p => p.phoneNumber)
                 .filter((pn): pn is string => !!pn && pn.trim() !== '');
+
             const uniquePhoneNumbers = [...new Set(phoneNumbers)];
             const commaSeparatedNumbers = uniquePhoneNumbers.join(', ');
 
@@ -187,7 +292,6 @@ class BroadcastService {
             return { success: false, phoneNumbers: null, message: 'A server error occurred while fetching phone numbers.' };
         }
     }
-
 }
 
 export const broadcastService = new BroadcastService();

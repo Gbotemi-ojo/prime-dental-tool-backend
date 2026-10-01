@@ -1,8 +1,6 @@
-// db/schema.ts
 import { serial, int, varchar, text, boolean, timestamp, json, mysqlTable, decimal } from 'drizzle-orm/mysql-core';
 import { relations } from 'drizzle-orm';
 
-// --- PATIENTS SCHEMA ---
 export const patients = mysqlTable("patients", {
     id: serial("id").primaryKey(),
     familyId: int("family_id").references((): any => patients.id, { onDelete: 'set null' }),
@@ -12,7 +10,7 @@ export const patients = mysqlTable("patients", {
     dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
     phoneNumber: varchar("phone_number", { length: 20 }).unique(),
     email: varchar("email", { length: 255 }).unique(),
-    address: text("address"), // UPDATED: Added patient address field
+    address: text("address"), 
     hmo: json("hmo"),
     nextAppointmentDate: timestamp("next_appointment_date", { mode: 'date' }),
     outstanding: decimal("outstanding", { precision: 10, scale: 2 }).default('0.00').notNull(),
@@ -20,10 +18,9 @@ export const patients = mysqlTable("patients", {
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
-// --- PATIENT RELATIONS ---
 export const patientRelations = relations(patients, ({ one, many }) => ({
     dentalRecords: many(dentalRecords),
-    dailyVisits: many(dailyVisits), // ADDED RELATION
+    dailyVisits: many(dailyVisits), 
     familyHead: one(patients, {
         fields: [patients.familyId],
         references: [patients.id],
@@ -34,14 +31,12 @@ export const patientRelations = relations(patients, ({ one, many }) => ({
     }),
 }));
 
-// --- NEW SCHEMA: DAILY VISITS ---
 export const dailyVisits = mysqlTable("daily_visits", {
     id: serial("id").primaryKey(),
     patientId: int("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
     checkInTime: timestamp("check_in_time").defaultNow().notNull(),
 });
 
-// --- DAILY VISITS RELATIONS ---
 export const dailyVisitsRelations = relations(dailyVisits, ({ one }) => ({
     patient: one(patients, {
         fields: [dailyVisits.patientId],
@@ -49,8 +44,6 @@ export const dailyVisitsRelations = relations(dailyVisits, ({ one }) => ({
     }),
 }));
 
-
-// --- USERS SCHEMA ---
 export const users = mysqlTable("users", {
     id: serial("id").primaryKey(),
     username: varchar("username", { length: 255 }).notNull().unique(),
@@ -62,13 +55,11 @@ export const users = mysqlTable("users", {
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
-// --- USER RELATIONS ---
 export const userRelations = relations(users, ({ many }) => ({
     dentalRecords: many(dentalRecords),
     inventoryTransactions: many(inventoryTransactions),
 }));
 
-// --- DENTAL RECORDS SCHEMA ---
 export const dentalRecords = mysqlTable("dental_records", {
     id: serial("id").primaryKey(),
     patientId: int("patient_id")
@@ -112,7 +103,6 @@ export const dentalRecords = mysqlTable("dental_records", {
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
-// --- DENTAL RECORD RELATIONS ---
 export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
     patient: one(patients, {
         fields: [dentalRecords.patientId],
@@ -130,7 +120,6 @@ export const dentalRecordRelations = relations(dentalRecords, ({ one }) => ({
     }),
 }));
 
-// --- INVENTORY SCHEMAS ---
 export const inventoryItems = mysqlTable("inventory_items", {
     id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull().unique(),
@@ -195,9 +184,6 @@ export const hmoProviders = mysqlTable("hmo_providers", {
     name: varchar("name", { length: 255 }).notNull().unique(),
 });
 
-// Add this new table schema at the end of db/schema.ts
-
-// --- IDEMPOTENCY KEYS SCHEMA ---
 export const idempotencyKeys = mysqlTable("idempotency_keys", {
     key: varchar("key", { length: 255 }).primaryKey(),
     responseBody: json("response_body").notNull(),
@@ -205,19 +191,18 @@ export const idempotencyKeys = mysqlTable("idempotency_keys", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Mirrors the patient table for demographic data, but for external web requests
 export const websiteBookings = mysqlTable("website_bookings", {
     id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     sex: varchar("sex", { length: 50 }).notNull(),
     dateOfBirth: timestamp("date_of_birth", { mode: 'date' }),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull(), // Vital for contact
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(), 
     email: varchar("email", { length: 255 }),
     address: text("address"),
     branch: varchar('branch', { length: 50 }),
-    hmo: json("hmo"), // Can capture HMO details if the form asks for it
-    requestedAppointmentDate: timestamp("requested_appointment_date", { mode: 'date' }), // Maps to nextAppointmentDate
-    complaint: text("complaint"), // Useful for knowing why they are booking
+    hmo: json("hmo"),
+    requestedAppointmentDate: timestamp("requested_appointment_date", { mode: 'date' }),
+    complaint: text("complaint"),
     status: varchar("status", { length: 20, enum: ['pending', 'confirmed', 'rejected', 'converted'] }).default('pending').notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -227,13 +212,9 @@ export const dailyReports = mysqlTable("daily_reports", {
     id: serial("id").primaryKey(),
     date: timestamp("report_date", { mode: 'date' }).notNull(),
     submittedBy: int("submitted_by").references(() => users.id, { onDelete: 'set null' }),
-    receptionistName: varchar("receptionist_name", { length: 255 }), // In case they want to type a specific name
-    
-    // Operations
+    receptionistName: varchar("receptionist_name", { length: 255 }),
     openingTime: varchar("opening_time", { length: 20 }),
     closingTime: varchar("closing_time", { length: 20 }),
-    
-    // Counts
     newPatientsCount: int("new_patients_count").default(0),
     returningPatientsCount: int("returning_patients_count").default(0),
     hmoPatientsCount: int("hmo_patients_count").default(0),
@@ -245,9 +226,6 @@ export const dailyReports = mysqlTable("daily_reports", {
     posTotal: decimal("pos_total", { precision: 12, scale: 2 }).default('0.00'),
     transferTotal: decimal("transfer_total", { precision: 12, scale: 2 }).default('0.00'),
     grandTotal: decimal("grand_total", { precision: 12, scale: 2 }).default('0.00'),
-    
-    // Expenses
-    // Structure: [{ description: string, amount: number }]
     expensesBreakdown: json("expenses_breakdown"),
     expensesTotal: decimal("expenses_total", { precision: 12, scale: 2 }).default('0.00'),
     
@@ -267,7 +245,6 @@ export const dailyReports = mysqlTable("daily_reports", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Add relation to users table relations if needed
 export const dailyReportRelations = relations(dailyReports, ({ one }) => ({
     submitter: one(users, {
         fields: [dailyReports.submittedBy],

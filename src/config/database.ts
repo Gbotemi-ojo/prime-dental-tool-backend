@@ -1,8 +1,7 @@
-// src/config/database.ts
-import 'dotenv/config'; // For process.env
+import 'dotenv/config';
 import mysql from 'mysql2/promise';
 import { drizzle } from 'drizzle-orm/mysql2';
-import * as schema from '../../db/schema'; // Adjust path if necessary based on your actual db folder location
+import * as schema from '../../db/schema';
 
 const dbCredentials = {
   host: process.env.DB_HOST,
@@ -14,7 +13,6 @@ const dbCredentials = {
 
 console.log('Database Credentials:', dbCredentials.host, ':', dbCredentials.port, '/', dbCredentials.database);
 
-// Create a connection pool
 const pool = mysql.createPool({
   host: dbCredentials.host,
   port: dbCredentials.port,
@@ -26,7 +24,6 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Test database connection on startup
 export async function testDatabaseConnection() {
   let connection;
   try {
@@ -34,7 +31,7 @@ export async function testDatabaseConnection() {
     console.log('Database connection successful!');
   } catch (error) {
     console.error('Database connection failed:', error);
-    process.exit(1); // Exit if DB connection fails on startup
+    process.exit(1);
   } finally {
     if (connection) {
       connection.release();
@@ -42,15 +39,12 @@ export async function testDatabaseConnection() {
   }
 }
 
-// Initialize Drizzle ORM
 export const db = drizzle(pool, { schema, mode: 'default' });
 
-// Graceful shutdown function
 export async function closeDatabaseConnection() {
   console.log('Closing MySQL connection pool...');
   await pool.end();
   console.log('MySQL connection pool closed.');
 }
 
-// Export the pool if you foresee needing direct mysql2 pool methods (less common with Drizzle)
 export { pool };
